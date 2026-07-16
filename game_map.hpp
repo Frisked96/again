@@ -1,17 +1,19 @@
+#pragma once
 #include "tile.hpp"
 #include <vector>
 
-class game_map {
-    private:
-    int height;
-    int width;
-    int depth;
-    std::vector<voxel::Block> map;
+namespace GameMap {
+class map {
+private:
+  int height, width;
+  std::vector<Tile::ID> grid;
+  void bound_check(int x, int y) const;
 
-    public:
-    game_map(int h, int w, int d): height(h), width(w), depth(d) {}
-    void generate();
-    void print(int h, int w, int d);
-    char get_glyph(int x, int y, int z) const;
-    ~game_map();
+public:
+  map(int h, int w);
+  void set(int x, int y, Tile::ID id);
+  Tile::ID at(int x, int y) const;
+  int get_width() const;
+  int get_height() const;
 };
+} // namespace GameMap
