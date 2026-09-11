@@ -2,7 +2,7 @@ CXX = clang++
 CXXFLAGS = -std=c++20 -Wall -Wextra -pedantic -O2
 
 TARGET = game
-SRCS = main.cpp game_map.cpp terminal.cpp renderer.cpp engine.cpp
+SRCS = main.cpp game_map.cpp terminal.cpp renderer.cpp engine.cpp camera.cpp fov.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 all: $(TARGET)

@@ -3,8 +3,13 @@
 
 namespace Engine {
 
-GameEngine::GameEngine(int map_width, int map_height)
-    : map(map_height, map_width), player(1, 1, '@', "Hero") {
+GameEngine::GameEngine(int map_width, int map_height,
+                       int viewport_width, int viewport_height,
+                       int fov_radius)
+    : map(map_height, map_width),
+      player(1, 1, '@', "Hero"),
+      camera(viewport_width, viewport_height),
+      fov(map_width, map_height, fov_radius) {
   init();
 }
 
@@ -22,6 +27,10 @@ void GameEngine::init() {
     }
   }
 
+  // Initial camera tracking and FOV computation
+  camera.update(player.x, player.y, map.get_width(), map.get_height());
+  fov.compute(map, player.x, player.y);
+
   Terminal::clear_screen();
 }
 
@@ -29,7 +38,7 @@ void GameEngine::run() {
   is_running = true;
 
   while (is_running) {
-    renderer.render(map, player);
+    renderer.render(map, player, camera, fov);
     handle_input();
   }
 
@@ -67,6 +76,8 @@ void GameEngine::handle_input() {
 
   if (map.is_walkable(target_x, target_y)) {
     player.move(dx, dy);
+    camera.update(player.x, player.y, map.get_width(), map.get_height());
+    fov.compute(map, player.x, player.y);
   }
 }
 

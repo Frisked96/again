@@ -88,6 +88,13 @@ bool map::is_walkable(int x, int y) const {
   return !Tile::getData(at(x, y)).blocksMovement;
 }
 
+bool map::blocks_sight(int x, int y) const {
+  if (!in_bounds(x, y)) {
+    return true;
+  }
+  return Tile::getData(at(x, y)).blocksSight;
+}
+
 int map::get_width() const { return width; }
 
 int map::get_height() const { return height; }
