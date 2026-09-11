@@ -1,12 +1,12 @@
 #include "engine.hpp"
-#include <iostream>
+#include "map_generator.hpp"
 
 namespace Engine {
 
 GameEngine::GameEngine(int map_width, int map_height,
                        int viewport_width, int viewport_height,
                        int fov_radius)
-    : map(map_height, map_width),
+    : map(map_width, map_height),
       player(1, 1, '@', "Hero"),
       camera(viewport_width, viewport_height),
       fov(map_width, map_height, fov_radius) {
@@ -14,18 +14,9 @@ GameEngine::GameEngine(int map_width, int map_height,
 }
 
 void GameEngine::init() {
-  map.generate();
-
-  // Find a walkable starting position
-  bool found = false;
-  for (int y = 1; y < map.get_height() - 1 && !found; ++y) {
-    for (int x = 1; x < map.get_width() - 1 && !found; ++x) {
-      if (map.is_walkable(x, y)) {
-        player.set_pos(x, y);
-        found = true;
-      }
-    }
-  }
+  // Generate map and place player at safe spawn point
+  auto spawn = GameMap::MapGenerator::generate(map);
+  player.set_pos(spawn.x, spawn.y);
 
   // Initial camera tracking and FOV computation
   camera.update(player.x, player.y, map.get_width(), map.get_height());
@@ -38,16 +29,22 @@ void GameEngine::run() {
   is_running = true;
 
   while (is_running) {
-    renderer.render(map, player, camera, fov);
+    renderer.render(map, player, camera, fov, terminal);
     handle_input();
   }
 
   Terminal::clear_screen();
-  std::cout << "Exited game. Goodbye!\n";
+  terminal.write("Exited game. Goodbye!\n");
+}
+
+void GameEngine::tick() {
+  ++turn_count;
+  // Advance simulation (monsters, factions, environment) per Hybrid Time pillar
 }
 
 void GameEngine::handle_input() {
-  Key key = terminal.read_key();
+  // Hybrid time: wait up to 1.5s for player action before ticking the world
+  Key key = terminal.read_key(1500);
   int dx = 0;
   int dy = 0;
 
@@ -64,6 +61,10 @@ void GameEngine::handle_input() {
   case Key::Right:
     dx = 1;
     break;
+  case Key::Timeout:
+    // Hybrid time heartbeat
+    tick();
+    return;
   case Key::Quit:
     is_running = false;
     return;
@@ -78,6 +79,7 @@ void GameEngine::handle_input() {
     player.move(dx, dy);
     camera.update(player.x, player.y, map.get_width(), map.get_height());
     fov.compute(map, player.x, player.y);
+    tick();
   }
 }
 

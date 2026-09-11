@@ -1,16 +1,17 @@
 #include "renderer.hpp"
+#include "terminal.hpp"
 #include "tile.hpp"
-#include <iostream>
-#include <string>
-
 #include <algorithm>
+#include <format>
+#include <string>
 
 namespace Engine {
 
-void Renderer::render(const GameMap::map &map,
+void Renderer::render(const GameMap::Map &map,
                       const Entity &player,
                       const Camera &camera,
-                      const FOV &fov) {
+                      const FOV &fov,
+                      Terminal &terminal) {
   std::string buffer;
   int view_w = camera.get_viewport_width();
   int view_h = camera.get_viewport_height();
@@ -93,17 +94,17 @@ void Renderer::render(const GameMap::map &map,
 
   // HUD & Status
   auto current_tile = Tile::getData(map.at(player.x, player.y));
-  buffer.append(std::string(view_w, '-') + "\n");
-  buffer.append("Position: (" + std::to_string(player.x) + ", " +
-                std::to_string(player.y) + ") | Standing on: " +
-                std::string(current_tile.name) + "\n");
-  buffer.append("Camera: (" + std::to_string(cam_x) + ", " +
-                std::to_string(cam_y) + ") | FOV Radius: " +
-                std::to_string(fov.get_radius()) + "\n");
+  buffer.append(std::string(view_w, '-'));
+  buffer.push_back('\n');
+  buffer.append(std::format("Position: ({}, {}) | Standing on: {}\n",
+                            player.x, player.y, current_tile.name));
+  buffer.append(std::format("Camera: ({}, {}) | FOV Radius: {}\n",
+                            cam_x, cam_y, fov.get_radius()));
   buffer.append("Controls: [WASD / Arrows / HJKL] Move | [Q] Quit\n");
-  buffer.append(std::string(view_w, '-') + "\n");
+  buffer.append(std::string(view_w, '-'));
+  buffer.push_back('\n');
 
-  std::cout << buffer << std::flush;
+  terminal.present(buffer);
 }
 
 } // namespace Engine

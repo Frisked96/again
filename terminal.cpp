@@ -1,11 +1,42 @@
 #include "terminal.hpp"
+#include <csignal>
+#include <cstdlib>
 #include <iostream>
 #include <poll.h>
 #include <unistd.h>
 
 namespace Engine {
 
+static Terminal *g_active_terminal = nullptr;
+
+void Terminal::setup_signals() {
+  struct sigaction sa;
+  sa.sa_handler = Terminal::signal_handler;
+  sigemptyset(&sa.sa_mask);
+  sa.sa_flags = 0;
+
+  sigaction(SIGINT, &sa, nullptr);
+  sigaction(SIGTERM, &sa, nullptr);
+  sigaction(SIGQUIT, &sa, nullptr);
+
+  std::atexit(Terminal::restore_terminal);
+}
+
+void Terminal::signal_handler(int signum) {
+  Terminal::restore_terminal();
+  _exit(128 + signum);
+}
+
+void Terminal::restore_terminal() {
+  if (g_active_terminal) {
+    g_active_terminal->disable_raw_mode();
+    show_cursor();
+  }
+}
+
 Terminal::Terminal() {
+  g_active_terminal = this;
+  setup_signals();
   enable_raw_mode();
   hide_cursor();
 }
@@ -13,6 +44,9 @@ Terminal::Terminal() {
 Terminal::~Terminal() {
   show_cursor();
   disable_raw_mode();
+  if (g_active_terminal == this) {
+    g_active_terminal = nullptr;
+  }
 }
 
 void Terminal::enable_raw_mode() {
@@ -26,7 +60,7 @@ void Terminal::enable_raw_mode() {
   struct termios raw = orig_termios;
   raw.c_lflag &= ~(ECHO | ICANON | IEXTEN);
   raw.c_iflag &= ~(IXON | ICRNL);
-  raw.c_cc[VMIN] = 1;
+  raw.c_cc[VMIN] = 0;
   raw.c_cc[VTIME] = 0;
 
   if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != -1) {
@@ -42,7 +76,17 @@ void Terminal::disable_raw_mode() {
   raw_mode_enabled = false;
 }
 
-Key Terminal::read_key() {
+Key Terminal::read_key(int timeout_ms) {
+  struct pollfd pfd = {STDIN_FILENO, POLLIN, 0};
+  int ret = poll(&pfd, 1, timeout_ms);
+
+  if (ret == 0) {
+    return Key::Timeout;
+  }
+  if (ret < 0) {
+    return Key::Quit;
+  }
+
   char c = 0;
   ssize_t n = read(STDIN_FILENO, &c, 1);
   if (n <= 0) {
@@ -68,13 +112,13 @@ Key Terminal::read_key() {
 
   // Handle escape sequences (Arrow keys)
   if (c == '\033') {
-    struct pollfd pfd = {STDIN_FILENO, POLLIN, 0};
-    int ret = poll(&pfd, 1, 50);
-    if (ret > 0 && (pfd.revents & POLLIN)) {
+    struct pollfd pfd_seq = {STDIN_FILENO, POLLIN, 0};
+    int ret_seq = poll(&pfd_seq, 1, 50);
+    if (ret_seq > 0 && (pfd_seq.revents & POLLIN)) {
       char seq[2] = {0, 0};
       if (read(STDIN_FILENO, &seq[0], 1) > 0) {
         if (seq[0] == '[') {
-          if (poll(&pfd, 1, 50) > 0 && (pfd.revents & POLLIN)) {
+          if (poll(&pfd_seq, 1, 50) > 0 && (pfd_seq.revents & POLLIN)) {
             if (read(STDIN_FILENO, &seq[1], 1) > 0) {
               switch (seq[1]) {
               case 'A':
@@ -98,6 +142,14 @@ Key Terminal::read_key() {
   }
 
   return Key::Unknown;
+}
+
+void Terminal::present(std::string_view frame) {
+  std::cout << frame << std::flush;
+}
+
+void Terminal::write(std::string_view text) {
+  std::cout << text;
 }
 
 void Terminal::clear_screen() {

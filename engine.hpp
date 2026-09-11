@@ -10,15 +10,17 @@ namespace Engine {
 
 class GameEngine {
 private:
-  GameMap::map map;
+  GameMap::Map map;
   Entity player;
   Camera camera;
   FOV fov;
   Terminal terminal;
   Renderer renderer;
   bool is_running{false};
+  uint64_t turn_count{0};
 
   void handle_input();
+  void tick();
   void init();
 
 public:

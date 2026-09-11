@@ -2,7 +2,7 @@
 #include <vector>
 
 namespace GameMap {
-class map;
+class Map;
 }
 
 namespace Engine {
@@ -15,7 +15,7 @@ private:
   std::vector<bool> visible_grid;
   std::vector<bool> explored_grid;
 
-  void scan(const GameMap::map &map, int cx, int cy, int row,
+  void scan(const GameMap::Map &map, int cx, int cy, int row,
             float start_slope, float end_slope, int current_radius,
             int xx, int xy, int yx, int yy);
 
@@ -24,7 +24,7 @@ public:
   FOV(int w, int h, int r = 8);
 
   void resize(int w, int h);
-  void compute(const GameMap::map &map, int player_x, int player_y, int r = -1);
+  void compute(const GameMap::Map &map, int player_x, int player_y, int r = -1);
 
   bool is_visible(int x, int y) const;
   bool is_explored(int x, int y) const;

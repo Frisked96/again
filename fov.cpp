@@ -56,7 +56,7 @@ void FOV::reset() {
   std::fill(explored_grid.begin(), explored_grid.end(), false);
 }
 
-void FOV::scan(const GameMap::map &map, int cx, int cy, int row,
+void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
                float start_slope, float end_slope, int current_radius,
                int xx, int xy, int yx, int yy) {
   if (start_slope < end_slope) {
@@ -120,7 +120,7 @@ void FOV::scan(const GameMap::map &map, int cx, int cy, int row,
   }
 }
 
-void FOV::compute(const GameMap::map &map, int player_x, int player_y, int r) {
+void FOV::compute(const GameMap::Map &map, int player_x, int player_y, int r) {
   if (r > 0) {
     radius = r;
   }

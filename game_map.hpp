@@ -3,21 +3,34 @@
 #include <vector>
 
 namespace GameMap {
-class map {
+
+class Map {
 private:
-  int height, width;
+  int width{0};
+  int height{0};
   std::vector<Tile::ID> grid;
-  void bound_check(int x, int y) const;
 
 public:
-  map(int h, int w);
+  Map(int w, int h, Tile::ID default_tile = Tile::ID::Floor);
+
+  void resize(int w, int h, Tile::ID default_tile = Tile::ID::Floor);
+  void clear(Tile::ID fill_id = Tile::ID::Floor);
+
   void set(int x, int y, Tile::ID id);
-  void generate();
   Tile::ID at(int x, int y) const;
+
   bool in_bounds(int x, int y) const;
   bool is_walkable(int x, int y) const;
   bool blocks_sight(int x, int y) const;
-  int get_width() const;
-  int get_height() const;
+
+  int get_width() const { return width; }
+  int get_height() const { return height; }
+
+  // Convenience generator delegation
+  void generate();
 };
+
+// Backwards-compatible alias
+using map = Map;
+
 } // namespace GameMap
