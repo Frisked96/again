@@ -1,0 +1,115 @@
+#include "terminal.hpp"
+#include <iostream>
+#include <poll.h>
+#include <unistd.h>
+
+namespace Engine {
+
+Terminal::Terminal() {
+  enable_raw_mode();
+  hide_cursor();
+}
+
+Terminal::~Terminal() {
+  show_cursor();
+  disable_raw_mode();
+}
+
+void Terminal::enable_raw_mode() {
+  if (raw_mode_enabled) {
+    return;
+  }
+  if (tcgetattr(STDIN_FILENO, &orig_termios) == -1) {
+    return;
+  }
+
+  struct termios raw = orig_termios;
+  raw.c_lflag &= ~(ECHO | ICANON | IEXTEN);
+  raw.c_iflag &= ~(IXON | ICRNL);
+  raw.c_cc[VMIN] = 1;
+  raw.c_cc[VTIME] = 0;
+
+  if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw) != -1) {
+    raw_mode_enabled = true;
+  }
+}
+
+void Terminal::disable_raw_mode() {
+  if (!raw_mode_enabled) {
+    return;
+  }
+  tcsetattr(STDIN_FILENO, TCSAFLUSH, &orig_termios);
+  raw_mode_enabled = false;
+}
+
+Key Terminal::read_key() {
+  char c = 0;
+  ssize_t n = read(STDIN_FILENO, &c, 1);
+  if (n <= 0) {
+    return Key::Quit;
+  }
+
+  if (c == 'q' || c == 'Q' || c == 3 || c == 4) { // 'q', 'Q', Ctrl-C, Ctrl-D
+    return Key::Quit;
+  }
+
+  if (c == 'w' || c == 'W' || c == 'k' || c == 'K') {
+    return Key::Up;
+  }
+  if (c == 's' || c == 'S' || c == 'j' || c == 'J') {
+    return Key::Down;
+  }
+  if (c == 'a' || c == 'A' || c == 'h' || c == 'H') {
+    return Key::Left;
+  }
+  if (c == 'd' || c == 'D' || c == 'l' || c == 'L') {
+    return Key::Right;
+  }
+
+  // Handle escape sequences (Arrow keys)
+  if (c == '\033') {
+    struct pollfd pfd = {STDIN_FILENO, POLLIN, 0};
+    int ret = poll(&pfd, 1, 50);
+    if (ret > 0 && (pfd.revents & POLLIN)) {
+      char seq[2] = {0, 0};
+      if (read(STDIN_FILENO, &seq[0], 1) > 0) {
+        if (seq[0] == '[') {
+          if (poll(&pfd, 1, 50) > 0 && (pfd.revents & POLLIN)) {
+            if (read(STDIN_FILENO, &seq[1], 1) > 0) {
+              switch (seq[1]) {
+              case 'A':
+                return Key::Up;
+              case 'B':
+                return Key::Down;
+              case 'C':
+                return Key::Right;
+              case 'D':
+                return Key::Left;
+              default:
+                break;
+              }
+            }
+          }
+        }
+      }
+    } else {
+      return Key::Quit;
+    }
+  }
+
+  return Key::Unknown;
+}
+
+void Terminal::clear_screen() {
+  std::cout << "\033[2J\033[H" << std::flush;
+}
+
+void Terminal::hide_cursor() {
+  std::cout << "\033[?25l" << std::flush;
+}
+
+void Terminal::show_cursor() {
+  std::cout << "\033[?25h" << std::flush;
+}
+
+} // namespace Engine
