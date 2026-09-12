@@ -14,6 +14,7 @@ private:
   int radius{8};
   std::vector<bool> visible_grid;
   std::vector<bool> explored_grid;
+  std::vector<int> visible_cells;
 
   void scan(const GameMap::Map &map, int cx, int cy, int row,
             float start_slope, float end_slope, int current_radius,

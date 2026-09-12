@@ -1,6 +1,8 @@
 #pragma once
+#include "spatial_grid.hpp"
 #include "tile.hpp"
-#include <vector>
+#include "weather.hpp"
+#include "region.hpp"
 
 namespace GameMap {
 
@@ -8,29 +10,59 @@ class Map {
 private:
   int width{0};
   int height{0};
-  std::vector<Tile::ID> grid;
+  SpatialGrid2D<Tile::ID> tile_grid;
+  SpatialGrid2D<World::RegionID> region_grid;
 
 public:
-  Map(int w, int h, Tile::ID default_tile = Tile::ID::Floor);
+  Map(int w = 10000, int h = 10000,
+      Tile::ID default_tile = Tile::ID::Grassland,
+      World::RegionID default_region = World::RegionID::LowlandMeadow);
 
-  void resize(int w, int h, Tile::ID default_tile = Tile::ID::Floor);
-  void clear(Tile::ID fill_id = Tile::ID::Floor);
+  void resize(int w, int h,
+              Tile::ID default_tile = Tile::ID::Grassland,
+              World::RegionID default_region = World::RegionID::LowlandMeadow);
+  void clear(Tile::ID fill_tile = Tile::ID::Grassland,
+             World::RegionID fill_region = World::RegionID::LowlandMeadow);
 
-  void set(int x, int y, Tile::ID id);
-  Tile::ID at(int x, int y) const;
+  // Core tile accessors
+  void set(int x, int y, Tile::ID id) noexcept;
+  Tile::ID at(int x, int y) const noexcept;
 
-  bool in_bounds(int x, int y) const;
-  bool is_walkable(int x, int y) const;
-  bool blocks_sight(int x, int y) const;
+  // Region and static climate accessors
+  void set_region(int x, int y, World::RegionID id) noexcept;
+  World::RegionID get_region(int x, int y) const noexcept;
+  Climate::WeatherData get_weather(int x, int y) const noexcept;
 
-  int get_width() const { return width; }
-  int get_height() const { return height; }
+  // Spatial queries
+  bool in_bounds(int x, int y) const noexcept;
+  bool is_walkable(int x, int y) const noexcept;
+  bool blocks_sight(int x, int y) const noexcept;
+  float get_movement_cost(int x, int y) const noexcept;
+  int get_visibility_limit(int x, int y) const noexcept;
 
-  // Convenience generator delegation
+  // Line-of-sight raycasting (Bresenham algorithm)
+  bool raycast_los(int x0, int y0, int x1, int y1) const noexcept;
+
+  // Dimensions
+  int get_width() const noexcept { return width; }
+  int get_height() const noexcept { return height; }
+
+  // High-performance direct row / scanline pointers for batch operations
+  Tile::ID* tile_row(int y) noexcept { return tile_grid.row_data(static_cast<size_t>(y)); }
+  const Tile::ID* tile_row(int y) const noexcept { return tile_grid.row_data(static_cast<size_t>(y)); }
+
+  World::RegionID* region_row(int y) noexcept { return region_grid.row_data(static_cast<size_t>(y)); }
+  const World::RegionID* region_row(int y) const noexcept { return region_grid.row_data(static_cast<size_t>(y)); }
+
+  const SpatialGrid2D<Tile::ID>& get_tile_grid() const noexcept { return tile_grid; }
+  const SpatialGrid2D<World::RegionID>& get_region_grid() const noexcept { return region_grid; }
+
+  // Generator delegation
   void generate();
 };
 
-// Backwards-compatible alias
+// Aliases
 using map = Map;
+using WorldMap = Map;
 
 } // namespace GameMap

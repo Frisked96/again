@@ -24,7 +24,7 @@ private:
   void init();
 
 public:
-  explicit GameEngine(int map_width = 80, int map_height = 35,
+  explicit GameEngine(int map_width = 10000, int map_height = 10000,
                       int viewport_width = 50, int viewport_height = 18,
                       int fov_radius = 8);
   void run();

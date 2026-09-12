@@ -14,6 +14,7 @@ void FOV::resize(int w, int h) {
   height = h;
   visible_grid.assign(w * h, false);
   explored_grid.assign(w * h, false);
+  visible_cells.clear();
 }
 
 bool FOV::in_bounds(int x, int y) const {
@@ -54,6 +55,7 @@ void FOV::reveal_all() {
 void FOV::reset() {
   std::fill(visible_grid.begin(), visible_grid.end(), false);
   std::fill(explored_grid.begin(), explored_grid.end(), false);
+  visible_cells.clear();
 }
 
 void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
@@ -89,7 +91,10 @@ void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
       if (dx * dx + dy * dy <= current_radius * current_radius) {
         if (in_bounds(X, Y)) {
           int index = Utils::to_index(X, Y, width);
-          visible_grid[index] = true;
+          if (!visible_grid[index]) {
+            visible_grid[index] = true;
+            visible_cells.push_back(index);
+          }
           explored_grid[index] = true;
         }
       }
@@ -125,14 +130,18 @@ void FOV::compute(const GameMap::Map &map, int player_x, int player_y, int r) {
     radius = r;
   }
 
-  // Clear previous turn's visibility
-  std::fill(visible_grid.begin(), visible_grid.end(), false);
+  // Clear previous turn's visible cells efficiently
+  for (int idx : visible_cells) {
+    visible_grid[idx] = false;
+  }
+  visible_cells.clear();
 
   // Player's own tile is always visible and explored
   if (in_bounds(player_x, player_y)) {
     int idx = Utils::to_index(player_x, player_y, width);
     visible_grid[idx] = true;
     explored_grid[idx] = true;
+    visible_cells.push_back(idx);
   }
 
   // 8 octant multipliers
