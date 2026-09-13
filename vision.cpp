@@ -1,9 +1,55 @@
-#include "fov.hpp"
+#include "vision.hpp"
 #include "game_map.hpp"
 #include "utils.hpp"
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 
-namespace Engine {
+namespace Vision {
+
+bool has_line_of_sight(const GameMap::Map &map, int x0, int y0, int x1, int y1, int max_range) noexcept {
+  if (!map.in_bounds(x0, y0) || !map.in_bounds(x1, y1)) {
+    return false;
+  }
+
+  int dx_total = x1 - x0;
+  int dy_total = y1 - y0;
+  int dist_sq = dx_total * dx_total + dy_total * dy_total;
+  int vis_limit = (max_range > 0) ? max_range : map.get_visibility_limit(x0, y0);
+  if (dist_sq > vis_limit * vis_limit) {
+    return false;
+  }
+
+  // Bresenham's line algorithm
+  int dx = std::abs(dx_total);
+  int dy = -std::abs(dy_total);
+  int sx = (x0 < x1) ? 1 : -1;
+  int sy = (y0 < y1) ? 1 : -1;
+  int err = dx + dy;
+
+  int curr_x = x0;
+  int curr_y = y0;
+
+  while (true) {
+    if (curr_x == x1 && curr_y == y1) {
+      return true; // Target reached without obstruction
+    }
+
+    if ((curr_x != x0 || curr_y != y0) && map.blocks_sight(curr_x, curr_y)) {
+      return false; // Obstructed by wall, forest, or summit
+    }
+
+    int e2 = 2 * err;
+    if (e2 >= dy) {
+      err += dy;
+      curr_x += sx;
+    }
+    if (e2 <= dx) {
+      err += dx;
+      curr_y += sy;
+    }
+  }
+}
 
 FOV::FOV(int w, int h, int r)
     : width(w), height(h), radius(r),
@@ -17,31 +63,31 @@ void FOV::resize(int w, int h) {
   visible_cells.clear();
 }
 
-bool FOV::in_bounds(int x, int y) const {
+bool FOV::in_bounds(int x, int y) const noexcept {
   return x >= 0 && x < width && y >= 0 && y < height;
 }
 
-bool FOV::is_visible(int x, int y) const {
+bool FOV::is_visible(int x, int y) const noexcept {
   if (!in_bounds(x, y)) {
     return false;
   }
   return visible_grid[Utils::to_index(x, y, width)];
 }
 
-bool FOV::is_explored(int x, int y) const {
+bool FOV::is_explored(int x, int y) const noexcept {
   if (!in_bounds(x, y)) {
     return false;
   }
   return explored_grid[Utils::to_index(x, y, width)];
 }
 
-void FOV::set_visible(int x, int y, bool visible) {
+void FOV::set_visible(int x, int y, bool visible) noexcept {
   if (in_bounds(x, y)) {
     visible_grid[Utils::to_index(x, y, width)] = visible;
   }
 }
 
-void FOV::set_explored(int x, int y, bool explored) {
+void FOV::set_explored(int x, int y, bool explored) noexcept {
   if (in_bounds(x, y)) {
     explored_grid[Utils::to_index(x, y, width)] = explored;
   }
@@ -125,20 +171,20 @@ void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
   }
 }
 
-void FOV::compute(const GameMap::Map &map, int player_x, int player_y, int r) {
+void FOV::compute(const GameMap::Map &map, int center_x, int center_y, int r) {
   if (r > 0) {
     radius = r;
   }
 
-  // Clear previous turn's visible cells efficiently
+  // Clear previous turn's visible cells efficiently in O(visible_count)
   for (int idx : visible_cells) {
     visible_grid[idx] = false;
   }
   visible_cells.clear();
 
-  // Player's own tile is always visible and explored
-  if (in_bounds(player_x, player_y)) {
-    int idx = Utils::to_index(player_x, player_y, width);
+  // Center tile is always visible and explored
+  if (in_bounds(center_x, center_y)) {
+    int idx = Utils::to_index(center_x, center_y, width);
     visible_grid[idx] = true;
     explored_grid[idx] = true;
     visible_cells.push_back(idx);
@@ -153,10 +199,10 @@ void FOV::compute(const GameMap::Map &map, int player_x, int player_y, int r) {
   };
 
   for (int i = 0; i < 8; ++i) {
-    scan(map, player_x, player_y, 1, 1.0f, 0.0f, radius,
+    scan(map, center_x, center_y, 1, 1.0f, 0.0f, radius,
          multipliers[0][i], multipliers[1][i],
          multipliers[2][i], multipliers[3][i]);
   }
 }
 
-} // namespace Engine
+} // namespace Vision

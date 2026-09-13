@@ -1,5 +1,4 @@
 #include "renderer.hpp"
-#include "terminal.hpp"
 #include "tile.hpp"
 #include <algorithm>
 #include <format>
@@ -7,12 +6,11 @@
 
 namespace Engine {
 
-void Renderer::render(const GameMap::Map &map,
-                      const Entity &player,
-                      const Camera &camera,
-                      const FOV &fov,
-                      Terminal &terminal,
-                      std::string_view status_message) {
+std::string Renderer::render(const GameMap::Map &map,
+                             const Entity &player,
+                             const Camera &camera,
+                             const Vision::FOV &fov,
+                             std::string_view status_message) {
   std::string buffer;
   int view_w = camera.get_viewport_width();
   int view_h = camera.get_viewport_height();
@@ -149,7 +147,7 @@ void Renderer::render(const GameMap::Map &map,
   buffer.append(std::string(view_w, '-'));
   buffer.append("\033[K\033[J");
 
-  terminal.present(buffer);
+  return buffer;
 }
 
 } // namespace Engine

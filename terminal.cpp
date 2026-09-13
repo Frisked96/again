@@ -77,44 +77,24 @@ void Terminal::disable_raw_mode() {
   raw_mode_enabled = false;
 }
 
-Key Terminal::read_key(int timeout_ms) {
+RawKey Terminal::read_key(int timeout_ms) {
   struct pollfd pfd = {STDIN_FILENO, POLLIN, 0};
   int ret = poll(&pfd, 1, timeout_ms);
 
   if (ret == 0) {
-    return Key::Timeout;
+    return {KeyCode::Timeout, 0};
   }
   if (ret < 0) {
-    return Key::Quit;
+    return {KeyCode::Escape, 0};
   }
 
   char c = 0;
   ssize_t n = read(STDIN_FILENO, &c, 1);
   if (n <= 0) {
-    return Key::Quit;
+    return {KeyCode::Escape, 0};
   }
 
-  if (c == 'q' || c == 'Q' || c == 3 || c == 4) { // 'q', 'Q', Ctrl-C, Ctrl-D
-    return Key::Quit;
-  }
-
-  if (c == 'w' || c == 'W' || c == 'k' || c == 'K') {
-    return Key::Up;
-  }
-  if (c == 's' || c == 'S' || c == 'j' || c == 'J') {
-    return Key::Down;
-  }
-  if (c == 'a' || c == 'A' || c == 'h' || c == 'H') {
-    return Key::Left;
-  }
-  if (c == 'd' || c == 'D' || c == 'l' || c == 'L') {
-    return Key::Right;
-  }
-  if (c == 'e' || c == 'E' || c == ' ') {
-    return Key::Interact;
-  }
-
-  // Handle escape sequences (Arrow keys)
+  // Handle escape sequences (Arrows)
   if (c == '\033') {
     struct pollfd pfd_seq = {STDIN_FILENO, POLLIN, 0};
     int ret_seq = poll(&pfd_seq, 1, 50);
@@ -126,13 +106,13 @@ Key Terminal::read_key(int timeout_ms) {
             if (read(STDIN_FILENO, &seq[1], 1) > 0) {
               switch (seq[1]) {
               case 'A':
-                return Key::Up;
+                return {KeyCode::Up, 0};
               case 'B':
-                return Key::Down;
+                return {KeyCode::Down, 0};
               case 'C':
-                return Key::Right;
+                return {KeyCode::Right, 0};
               case 'D':
-                return Key::Left;
+                return {KeyCode::Left, 0};
               default:
                 break;
               }
@@ -140,12 +120,21 @@ Key Terminal::read_key(int timeout_ms) {
           }
         }
       }
-    } else {
-      return Key::Quit;
     }
+    return {KeyCode::Escape, '\033'};
   }
 
-  return Key::Unknown;
+  if (c == '\n' || c == '\r') {
+    return {KeyCode::Enter, c};
+  }
+  if (c == ' ') {
+    return {KeyCode::Space, ' '};
+  }
+  if (c == 3 || c == 4) { // Ctrl-C, Ctrl-D
+    return {KeyCode::Escape, c};
+  }
+
+  return {KeyCode::Char, c};
 }
 
 void Terminal::present(std::string_view frame) {

@@ -1,5 +1,5 @@
 #include "game_map.hpp"
-#include "map_generator.hpp"
+#include "vision.hpp"
 #include <cmath>
 #include <cstdlib>
 
@@ -156,53 +156,7 @@ int Map::get_visibility_limit(int x, int y) const noexcept {
 }
 
 bool Map::raycast_los(int x0, int y0, int x1, int y1) const noexcept {
-  if (!in_bounds(x0, y0) || !in_bounds(x1, y1)) {
-    return false;
-  }
-
-  // Check if target exceeds source weather visibility limit
-  int dx_total = x1 - x0;
-  int dy_total = y1 - y0;
-  int dist_sq = dx_total * dx_total + dy_total * dy_total;
-  int vis_limit = get_visibility_limit(x0, y0);
-  if (dist_sq > vis_limit * vis_limit) {
-    return false;
-  }
-
-  // Bresenham's line algorithm
-  int dx = std::abs(dx_total);
-  int dy = -std::abs(dy_total);
-  int sx = (x0 < x1) ? 1 : -1;
-  int sy = (y0 < y1) ? 1 : -1;
-  int err = dx + dy;
-
-  int curr_x = x0;
-  int curr_y = y0;
-
-  while (true) {
-    if (curr_x == x1 && curr_y == y1) {
-      return true; // Reached target without obstruction
-    }
-
-    // Do not check obstruction on the origin cell itself
-    if ((curr_x != x0 || curr_y != y0) && blocks_sight(curr_x, curr_y)) {
-      return false; // Obstructed by wall, forest, or summit
-    }
-
-    int e2 = 2 * err;
-    if (e2 >= dy) {
-      err += dy;
-      curr_x += sx;
-    }
-    if (e2 <= dx) {
-      err += dx;
-      curr_y += sy;
-    }
-  }
-}
-
-void Map::generate() {
-  MapGenerator::generate(*this);
+  return Vision::has_line_of_sight(*this, x0, y0, x1, y1);
 }
 
 } // namespace GameMap

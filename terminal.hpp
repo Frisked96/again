@@ -4,16 +4,22 @@
 
 namespace Engine {
 
-enum class Key {
+enum class KeyCode {
   None,
+  Char,
   Up,
   Down,
   Left,
   Right,
-  Interact,
-  Timeout, // Hybrid time tick
-  Quit,
-  Unknown
+  Enter,
+  Escape,
+  Space,
+  Timeout
+};
+
+struct RawKey {
+  KeyCode code{KeyCode::None};
+  char ch{0};
 };
 
 class Terminal {
@@ -37,7 +43,7 @@ public:
 
   // Non-blocking read with timeout in milliseconds (default 1500 ms for hybrid time).
   // If timeout_ms < 0, blocks indefinitely.
-  Key read_key(int timeout_ms = 1500);
+  RawKey read_key(int timeout_ms = 1500);
 
   // Output encapsulation
   void present(std::string_view frame);

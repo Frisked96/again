@@ -1,6 +1,5 @@
 #include "engine.hpp"
 #include "map_generator.hpp"
-#include <format>
 
 namespace Engine {
 
@@ -10,7 +9,8 @@ GameEngine::GameEngine(int map_width, int map_height,
     : map(map_width, map_height),
       player(1, 1, '@', "Hero"),
       camera(viewport_width, viewport_height),
-      fov(map_width, map_height, fov_radius) {
+      fov(map_width, map_height, fov_radius),
+      message_log("Explore the realm.") {
   init();
 }
 
@@ -30,7 +30,12 @@ void GameEngine::run() {
   is_running = true;
 
   while (is_running) {
-    renderer.render(map, player, camera, fov, terminal, status_message);
+    // Decoupled presentation pipeline:
+    // 1. Renderer constructs frame buffer
+    // 2. Terminal presents frame buffer
+    std::string frame = renderer.render(map, player, camera, fov, message_log.get());
+    terminal.present(frame);
+
     handle_input();
   }
 
@@ -40,65 +45,29 @@ void GameEngine::run() {
 
 void GameEngine::tick() {
   ++turn_count;
-  // Advance simulation (monsters, factions, environment) per Hybrid Time pillar
+  // Advance world simulation (wildlife, weather, factions) per Hybrid Time pillar
 }
 
 void GameEngine::handle_input() {
   // Hybrid time: wait up to 1.5s for player action before ticking the world
-  Key key = terminal.read_key(1500);
-  int dx = 0;
-  int dy = 0;
+  RawKey raw_key = terminal.read_key(1500);
+  Action action = InputHandler::map_key_to_action(raw_key);
 
-  switch (key) {
-  case Key::Up:
-    dy = -1;
-    break;
-  case Key::Down:
-    dy = 1;
-    break;
-  case Key::Left:
-    dx = -1;
-    break;
-  case Key::Right:
-    dx = 1;
-    break;
-  case Key::Interact: {
-    if (map.has_vegetation(player.x, player.y)) {
-      auto result = map.harvest_vegetation(player.x, player.y, 25);
-      if (result.amount_gathered > 0) {
-        status_message = std::format("Harvested {} {} from {}!{}",
-                                     result.amount_gathered,
-                                     Vegetation::resource_name(result.resource),
-                                     result.plant_name,
-                                     result.depleted ? " Depleted / felled into stump!" : "");
-      } else {
-        status_message = "Nothing more to harvest here.";
-      }
-    } else {
-      status_message = "No flora here to harvest.";
-    }
-    tick();
-    return;
-  }
-  case Key::Timeout:
-    // Hybrid time heartbeat
-    tick();
-    return;
-  case Key::Quit:
+  if (action.type == ActionType::Quit) {
     is_running = false;
     return;
-  default:
-    return;
   }
 
-  int target_x = player.x + dx;
-  int target_y = player.y + dy;
+  // Execute gameplay action
+  ActionResult result = ActionSystem::execute(action, map, player, camera, fov);
 
-  if (map.is_walkable(target_x, target_y)) {
-    player.move(dx, dy);
-    camera.update(player.x, player.y, map.get_width(), map.get_height());
-    fov.compute(map, player.x, player.y);
-    status_message.clear();
+  if (!result.message.empty()) {
+    message_log.set(result.message);
+  } else if (result.consumed_turn) {
+    message_log.clear();
+  }
+
+  if (result.consumed_turn) {
     tick();
   }
 }

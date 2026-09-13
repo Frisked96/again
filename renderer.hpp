@@ -1,23 +1,22 @@
 #pragma once
 #include "camera.hpp"
 #include "entity.hpp"
-#include "fov.hpp"
 #include "game_map.hpp"
+#include "vision.hpp"
+#include <string>
+#include <string_view>
 
 namespace Engine {
-
-class Terminal;
 
 class Renderer {
 public:
   Renderer() = default;
 
-  void render(const GameMap::Map &map,
-              const Entity &player,
-              const Camera &camera,
-              const FOV &fov,
-              Terminal &terminal,
-              std::string_view status_message = "");
+  std::string render(const GameMap::Map &map,
+                     const Entity &player,
+                     const Camera &camera,
+                     const Vision::FOV &fov,
+                     std::string_view status_message = "");
 };
 
 } // namespace Engine

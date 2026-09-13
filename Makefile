@@ -2,11 +2,11 @@ CXX = clang++
 CXXFLAGS = -std=c++20 -Wall -Wextra -pedantic -O2
 
 TARGET = game
-SRCS = main.cpp game_map.cpp map_generator.cpp terminal.cpp renderer.cpp engine.cpp camera.cpp fov.cpp
+SRCS = main.cpp game_map.cpp map_generator.cpp terminal.cpp renderer.cpp engine.cpp camera.cpp vision.cpp action.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 TEST_TARGET = test_arch
-TEST_SRCS = tests/test_world_architecture.cpp game_map.cpp map_generator.cpp
+TEST_SRCS = tests/test_world_architecture.cpp game_map.cpp map_generator.cpp vision.cpp
 TEST_OBJS = $(TEST_SRCS:.cpp=.o)
 
 all: $(TARGET)

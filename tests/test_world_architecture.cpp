@@ -4,6 +4,7 @@
 #include "../region.hpp"
 #include "../tile.hpp"
 #include "../vegetation.hpp"
+#include "../vision.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -268,6 +269,37 @@ void test_continental_generation() {
     std::cout << "  ✓ Continental geography, decoupled flora, and road clearance verified successfully.\n";
 }
 
+void test_vision_system() {
+    std::cout << "[TEST] Validating decoupled Vision subsystem (LoS & FOV)...\n";
+    GameMap::Map map(100, 100);
+
+    for (int y = 0; y < 10; ++y) {
+        for (int x = 0; x < 10; ++x) {
+            map.set(x, y, Tile::ID::Grassland);
+            map.set_vegetation(x, y, Vegetation::ID::None);
+        }
+    }
+
+    // Direct Vision::has_line_of_sight
+    assert(Vision::has_line_of_sight(map, 2, 2, 2, 6) == true);
+
+    // Place sight blocker
+    map.set_vegetation(2, 4, Vegetation::ID::DeciduousTree, 100);
+    assert(Vision::has_line_of_sight(map, 2, 2, 2, 6) == false);
+
+    // Test Vision::FOV computation
+    Vision::FOV fov(100, 100, 5);
+    fov.compute(map, 2, 2);
+
+    assert(fov.is_visible(2, 2) == true);
+    assert(fov.is_explored(2, 2) == true);
+    assert(fov.is_visible(2, 3) == true);
+    assert(fov.is_visible(2, 4) == true);  // The blocker itself is visible
+    assert(fov.is_visible(2, 5) == false); // Behind the blocker is in shadow!
+
+    std::cout << "  ✓ Decoupled Vision::has_line_of_sight and Vision::FOV verified successfully.\n";
+}
+
 int main() {
     std::cout << "========================================================\n";
     std::cout << " Decoupled Vegetation & Resource Architecture Test Suite\n";
@@ -279,6 +311,7 @@ int main() {
     test_weather_and_regions();
     test_spatial_grid_10k();
     test_continental_generation();
+    test_vision_system();
 
     print_memory_usage();
 

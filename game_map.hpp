@@ -76,9 +76,6 @@ public:
   const SpatialGrid2D<Tile::ID>& get_tile_grid() const noexcept { return tile_grid; }
   const SpatialGrid2D<World::RegionID>& get_region_grid() const noexcept { return region_grid; }
   const SpatialGrid2D<Vegetation::Cell>& get_vegetation_grid() const noexcept { return vegetation_grid; }
-
-  // Generator delegation
-  void generate();
 };
 
 // Aliases
