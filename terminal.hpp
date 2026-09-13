@@ -10,6 +10,7 @@ enum class Key {
   Down,
   Left,
   Right,
+  Interact,
   Timeout, // Hybrid time tick
   Quit,
   Unknown
@@ -46,6 +47,7 @@ public:
   static void hide_cursor();
   static void show_cursor();
   static void restore_terminal();
+  static bool get_size(int &rows, int &cols);
 };
 
 } // namespace Engine

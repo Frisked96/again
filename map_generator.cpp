@@ -68,6 +68,7 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
   for (int y = 0; y < height; ++y) {
     Tile::ID* tile_row = map.tile_row(y);
     World::RegionID* region_row = map.region_row(y);
+    Vegetation::Cell* veg_row = map.vegetation_row(y);
 
     float gy = static_cast<float>(y) * step_y;
     int my0 = static_cast<int>(gy);
@@ -107,8 +108,9 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
 
       World::RegionID region;
       Tile::ID tile;
+      Vegetation::Cell veg{Vegetation::ID::None, 0};
 
-      // 3. Whittaker Biome Classification & Terrain Assignment
+      // 3. Whittaker Biome Classification & Substrate Terrain Assignment
       if (elev < 0.08f) {
         // Ocean / Coastline
         region = World::RegionID::CoastalCliffs;
@@ -127,46 +129,89 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
         // Foothills & High Scree
         region = World::RegionID::HighlandPeaks;
         tile = (local_dither < 0.55f) ? Tile::ID::Foothills : Tile::ID::RockyGround;
+        if (local_dither < 0.15f) {
+          veg = {Vegetation::ID::DenseScrub, 60};
+        }
       } else if (effective_temp < 0.25f) {
         // Cold Boreal & Tundra
         if (moist < 0.40f) {
           region = World::RegionID::FrostTundra;
           tile = (local_dither < 0.6f) ? Tile::ID::Tundra : Tile::ID::SnowLight;
+          if (local_dither < 0.40f) {
+            veg = {Vegetation::ID::TundraLichen, 20};
+          }
         } else {
           region = World::RegionID::BorealTaiga;
-          tile = (local_dither < 0.65f) ? Tile::ID::ForestConiferous : Tile::ID::SnowLight;
+          tile = (local_dither < 0.55f) ? Tile::ID::ForestSoil : Tile::ID::SnowLight;
+          if (local_dither < 0.65f) {
+            veg = {Vegetation::ID::ConiferousTree, 100};
+          } else if (local_dither < 0.80f) {
+            veg = {Vegetation::ID::DenseScrub, 60};
+          }
         }
       } else if (effective_temp > 0.68f) {
         // Arid Wastes & Steppes
         if (moist < 0.35f) {
           region = World::RegionID::AridWaste;
           tile = (local_dither < 0.65f) ? Tile::ID::DesertSand : Tile::ID::HardenedClay;
+          if (local_dither < 0.10f) {
+            veg = {Vegetation::ID::AridBrush, 25};
+          }
         } else if (moist < 0.60f) {
           region = World::RegionID::DrySteppe;
           tile = (local_dither < 0.6f) ? Tile::ID::DrySteppe : Tile::ID::HardenedClay;
+          if (local_dither < 0.28f) {
+            veg = {Vegetation::ID::AridBrush, 25};
+          }
         } else {
           region = World::RegionID::LowlandMeadow;
           tile = (local_dither < 0.75f) ? Tile::ID::Grassland : Tile::ID::Farmland;
+          if (tile == Tile::ID::Farmland) {
+            veg = {Vegetation::ID::WildCrops, 40};
+          } else if (local_dither < 0.15f) {
+            veg = {Vegetation::ID::BerryBush, 30};
+          }
         }
       } else {
         // Temperate Continental Zone
         if (moist > 0.72f && elev < 0.32f) {
           region = World::RegionID::PeatFen;
           tile = (local_dither < 0.50f) ? Tile::ID::PeatBog :
-                 (local_dither < 0.80f) ? Tile::ID::DenseScrub : Tile::ID::MarshWater;
+                 (local_dither < 0.80f) ? Tile::ID::ForestSoil : Tile::ID::MarshWater;
+          if (tile == Tile::ID::MarshWater && local_dither < 0.40f) {
+            veg = {Vegetation::ID::MarshReeds, 50};
+          } else if (local_dither < 0.50f) {
+            veg = {Vegetation::ID::DenseScrub, 60};
+          }
         } else if (moist > 0.45f) {
           region = World::RegionID::DeciduousWeald;
-          tile = (local_dither < 0.60f) ? Tile::ID::ForestDeciduous :
-                 (local_dither < 0.85f) ? Tile::ID::DenseScrub : Tile::ID::Grassland;
+          tile = (local_dither < 0.80f) ? Tile::ID::ForestSoil : Tile::ID::Grassland;
+          if (local_dither < 0.62f) {
+            veg = {Vegetation::ID::DeciduousTree, 100};
+          } else if (local_dither < 0.78f) {
+            veg = {Vegetation::ID::BerryBush, 30};
+          } else if (local_dither < 0.90f) {
+            veg = {Vegetation::ID::DenseScrub, 60};
+          }
         } else {
           region = World::RegionID::LowlandMeadow;
           tile = (local_dither < 0.60f) ? Tile::ID::Grassland :
                  (local_dither < 0.85f) ? Tile::ID::Farmland : Tile::ID::RockyGround;
+          if (tile == Tile::ID::Farmland) {
+            veg = {Vegetation::ID::WildCrops, 40};
+          } else if (local_dither < 0.12f) {
+            veg = {Vegetation::ID::BerryBush, 30};
+          } else if (local_dither < 0.22f) {
+            veg = {Vegetation::ID::DeciduousTree, 100};
+          } else if (local_dither < 0.32f) {
+            veg = {Vegetation::ID::DenseScrub, 60};
+          }
         }
       }
 
       region_row[x] = region;
       tile_row[x] = tile;
+      veg_row[x] = veg;
     }
   }
 
@@ -183,6 +228,7 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
         } else {
           map.set(x, ry, (x % 3 == 0) ? Tile::ID::Cobblestone : Tile::ID::DirtRoad);
         }
+        map.set_vegetation(x, ry, Vegetation::ID::None, 0);
       }
     }
   }

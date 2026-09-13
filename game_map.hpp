@@ -1,10 +1,18 @@
 #pragma once
+#include "region.hpp"
 #include "spatial_grid.hpp"
 #include "tile.hpp"
+#include "vegetation.hpp"
 #include "weather.hpp"
-#include "region.hpp"
 
 namespace GameMap {
+
+struct HarvestResult {
+  Vegetation::ResourceType resource{Vegetation::ResourceType::None};
+  int amount_gathered{0};
+  bool depleted{false};
+  std::string_view plant_name{"none"};
+};
 
 class Map {
 private:
@@ -12,6 +20,7 @@ private:
   int height{0};
   SpatialGrid2D<Tile::ID> tile_grid;
   SpatialGrid2D<World::RegionID> region_grid;
+  SpatialGrid2D<Vegetation::Cell> vegetation_grid;
 
 public:
   Map(int w = 10000, int h = 10000,
@@ -22,11 +31,18 @@ public:
               Tile::ID default_tile = Tile::ID::Grassland,
               World::RegionID default_region = World::RegionID::LowlandMeadow);
   void clear(Tile::ID fill_tile = Tile::ID::Grassland,
-             World::RegionID fill_region = World::RegionID::LowlandMeadow);
+             World::RegionID fill_region = World::RegionID::LowlandMeadow,
+             Vegetation::ID fill_veg = Vegetation::ID::None);
 
   // Core tile accessors
   void set(int x, int y, Tile::ID id) noexcept;
   Tile::ID at(int x, int y) const noexcept;
+
+  // Vegetation accessors & resource harvesting
+  void set_vegetation(int x, int y, Vegetation::ID id, uint8_t amount = 100) noexcept;
+  Vegetation::Cell get_vegetation(int x, int y) const noexcept;
+  bool has_vegetation(int x, int y) const noexcept;
+  HarvestResult harvest_vegetation(int x, int y, int amount = 25) noexcept;
 
   // Region and static climate accessors
   void set_region(int x, int y, World::RegionID id) noexcept;
@@ -54,8 +70,12 @@ public:
   World::RegionID* region_row(int y) noexcept { return region_grid.row_data(static_cast<size_t>(y)); }
   const World::RegionID* region_row(int y) const noexcept { return region_grid.row_data(static_cast<size_t>(y)); }
 
+  Vegetation::Cell* vegetation_row(int y) noexcept { return vegetation_grid.row_data(static_cast<size_t>(y)); }
+  const Vegetation::Cell* vegetation_row(int y) const noexcept { return vegetation_grid.row_data(static_cast<size_t>(y)); }
+
   const SpatialGrid2D<Tile::ID>& get_tile_grid() const noexcept { return tile_grid; }
   const SpatialGrid2D<World::RegionID>& get_region_grid() const noexcept { return region_grid; }
+  const SpatialGrid2D<Vegetation::Cell>& get_vegetation_grid() const noexcept { return vegetation_grid; }
 
   // Generator delegation
   void generate();

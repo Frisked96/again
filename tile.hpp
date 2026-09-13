@@ -17,9 +17,10 @@ enum class ID : std::uint8_t {
   Ice,
   PackIce,
 
-  // Lowlands & Vegetation
+  // Lowlands & Ground Substrates
   Grassland,
   DrySteppe,
+  ForestSoil,
   ForestDeciduous,
   ForestConiferous,
   DenseScrub,
@@ -77,11 +78,13 @@ inline constexpr Data getData(ID id) noexcept {
   case ID::PackIce:
     return {"jagged pack ice", '%', false, false, 1.8f, 0};
 
-  // Lowlands & Vegetation
+  // Lowlands & Ground Substrates
   case ID::Grassland:
     return {"grassland meadow", '.', false, false, 1.0f, 20};
   case ID::DrySteppe:
     return {"arid steppe", ',', false, false, 1.0f, 30};
+  case ID::ForestSoil:
+    return {"forest loam", '.', false, false, 1.05f, 15};
   case ID::ForestDeciduous:
     return {"broadleaf forest", 'T', false, true, 1.5f, 70};
   case ID::ForestConiferous:

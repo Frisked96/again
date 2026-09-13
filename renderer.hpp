@@ -16,7 +16,8 @@ public:
               const Entity &player,
               const Camera &camera,
               const FOV &fov,
-              Terminal &terminal);
+              Terminal &terminal,
+              std::string_view status_message = "");
 };
 
 } // namespace Engine

@@ -3,6 +3,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <poll.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 namespace Engine {
@@ -29,8 +30,8 @@ void Terminal::signal_handler(int signum) {
 
 void Terminal::restore_terminal() {
   if (g_active_terminal) {
+    std::cout << "\033[?1049l\033[?25h" << std::flush;
     g_active_terminal->disable_raw_mode();
-    show_cursor();
   }
 }
 
@@ -39,11 +40,11 @@ Terminal::Terminal() {
   setup_signals();
   enable_raw_mode();
   hide_cursor();
+  std::cout << "\033[?1049h\033[2J\033[H" << std::flush;
 }
 
 Terminal::~Terminal() {
-  show_cursor();
-  disable_raw_mode();
+  restore_terminal();
   if (g_active_terminal == this) {
     g_active_terminal = nullptr;
   }
@@ -109,6 +110,9 @@ Key Terminal::read_key(int timeout_ms) {
   if (c == 'd' || c == 'D' || c == 'l' || c == 'L') {
     return Key::Right;
   }
+  if (c == 'e' || c == 'E' || c == ' ') {
+    return Key::Interact;
+  }
 
   // Handle escape sequences (Arrow keys)
   if (c == '\033') {
@@ -162,6 +166,16 @@ void Terminal::hide_cursor() {
 
 void Terminal::show_cursor() {
   std::cout << "\033[?25h" << std::flush;
+}
+
+bool Terminal::get_size(int &rows, int &cols) {
+  struct winsize ws;
+  if (ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == 0 && ws.ws_row > 0 && ws.ws_col > 0) {
+    rows = ws.ws_row;
+    cols = ws.ws_col;
+    return true;
+  }
+  return false;
 }
 
 } // namespace Engine

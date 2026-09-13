@@ -18,6 +18,7 @@ private:
   Renderer renderer;
   bool is_running{false};
   uint64_t turn_count{0};
+  std::string status_message{"Explore the realm."};
 
   void handle_input();
   void tick();

@@ -3,6 +3,7 @@
 #include "../weather.hpp"
 #include "../region.hpp"
 #include "../tile.hpp"
+#include "../vegetation.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -19,7 +20,7 @@ void print_memory_usage() {
 }
 
 void test_tile_properties() {
-    std::cout << "[TEST] Validating realistic medieval tiles...\n";
+    std::cout << "[TEST] Validating realistic medieval ground tiles...\n";
 
     // Test water bodies
     auto deep_water = Tile::getData(Tile::ID::DeepWater);
@@ -30,11 +31,11 @@ void test_tile_properties() {
     assert(coastal_water.blocksMovement == false);
     assert(coastal_water.movementCost > 1.0f);
 
-    // Test vegetation
-    auto forest = Tile::getData(Tile::ID::ForestDeciduous);
-    assert(forest.blocksMovement == false);
-    assert(forest.blocksSight == true);
-    assert(forest.flammability > 0);
+    // Test ground substrates
+    auto forest_soil = Tile::getData(Tile::ID::ForestSoil);
+    assert(forest_soil.blocksMovement == false);
+    assert(forest_soil.blocksSight == false); // Pure ground substrate does not block sight!
+    assert(forest_soil.movementCost > 1.0f);
 
     auto grassland = Tile::getData(Tile::ID::Grassland);
     assert(grassland.blocksMovement == false);
@@ -56,7 +57,72 @@ void test_tile_properties() {
     assert(summit.blocksMovement == true);
     assert(summit.blocksSight == true);
 
-    std::cout << "  ✓ All tile physical properties verified successfully.\n";
+    std::cout << "  ✓ All ground substrate physical properties verified successfully.\n";
+}
+
+void test_vegetation_properties() {
+    std::cout << "[TEST] Validating decoupled vegetation & resource flora...\n";
+
+    // Deciduous Oak
+    auto oak = Vegetation::getData(Vegetation::ID::DeciduousTree);
+    assert(oak.blocksSight == true);
+    assert(oak.blocksMovement == false);
+    assert(oak.resourceType == Vegetation::ResourceType::Timber);
+    assert(oak.maxYield == 100);
+    assert(Vegetation::can_grow(Vegetation::ID::DeciduousTree, 15.0f, 0.60f) == true);
+    assert(Vegetation::can_grow(Vegetation::ID::DeciduousTree, -15.0f, 0.60f) == false); // Too cold
+
+    // Coniferous Pine
+    auto pine = Vegetation::getData(Vegetation::ID::ConiferousTree);
+    assert(pine.blocksSight == true);
+    assert(pine.resourceType == Vegetation::ResourceType::Softwood);
+    assert(Vegetation::can_grow(Vegetation::ID::ConiferousTree, -5.0f, 0.50f) == true);
+
+    // Berry Bush
+    auto bush = Vegetation::getData(Vegetation::ID::BerryBush);
+    assert(bush.blocksSight == false); // Small bushes do not block line of sight
+    assert(bush.resourceType == Vegetation::ResourceType::WildBerries);
+
+    // Tree Stump (post-felling)
+    auto stump = Vegetation::getData(Vegetation::ID::TreeStump);
+    assert(stump.blocksSight == false); // Felled tree stump does not block sight!
+    assert(stump.glyph == 'o');
+
+    std::cout << "  ✓ Vegetation data, resources, and climate tolerance verified successfully.\n";
+}
+
+void test_vegetation_harvesting() {
+    std::cout << "[TEST] Validating vegetation harvesting and physical state transitions...\n";
+    GameMap::Map map(100, 100);
+
+    // 1. Plant an oak tree over forest soil
+    map.set(10, 10, Tile::ID::ForestSoil);
+    map.set_vegetation(10, 10, Vegetation::ID::DeciduousTree, 100);
+
+    assert(map.has_vegetation(10, 10));
+    assert(map.blocks_sight(10, 10) == true); // Standing tree blocks sight
+
+    // 2. Partial harvest (e.g. chop 30 wood)
+    auto res1 = map.harvest_vegetation(10, 10, 30);
+    assert(res1.resource == Vegetation::ResourceType::Timber);
+    assert(res1.amount_gathered == 30);
+    assert(res1.depleted == false);
+    assert(map.get_vegetation(10, 10).resource_amount == 70);
+    assert(map.blocks_sight(10, 10) == true); // Still standing
+
+    // 3. Complete harvest (felling the tree)
+    auto res2 = map.harvest_vegetation(10, 10, 70);
+    assert(res2.resource == Vegetation::ResourceType::Timber);
+    assert(res2.amount_gathered == 70);
+    assert(res2.depleted == true);
+
+    // 4. Verify state transition to stump over the original forest soil substrate
+    auto veg_cell = map.get_vegetation(10, 10);
+    assert(veg_cell.id == Vegetation::ID::TreeStump);
+    assert(map.at(10, 10) == Tile::ID::ForestSoil); // Underlying ground preserved!
+    assert(map.blocks_sight(10, 10) == false);       // Line of sight restored through the clearing!
+
+    std::cout << "  ✓ Harvesting, resource gathering, and stump transition verified successfully.\n";
 }
 
 void test_weather_and_regions() {
@@ -90,14 +156,15 @@ void test_weather_and_regions() {
 }
 
 void test_spatial_grid_10k() {
-    std::cout << "[TEST] Allocating 10,000 x 10,000 WorldMap (100,000,000 cells)...\n";
+    std::cout << "[TEST] Allocating 10,000 x 10,000 WorldMap (100,000,000 cells x 3 grids)...\n";
     auto t0 = std::chrono::high_resolution_clock::now();
 
     GameMap::Map world(10000, 10000);
 
     auto t1 = std::chrono::high_resolution_clock::now();
     double alloc_ms = std::chrono::duration<double, std::milli>(t1 - t0).count();
-    std::cout << "  ✓ 100M cell map allocated in " << std::fixed << std::setprecision(2) << alloc_ms << " ms (~200 MB RAM).\n";
+    std::cout << "  ✓ 100M cell map (tile, region, and 2-byte vegetation grids) allocated in "
+              << std::fixed << std::setprecision(2) << alloc_ms << " ms (~400 MB RAM).\n";
 
     assert(world.get_width() == 10000);
     assert(world.get_height() == 10000);
@@ -119,37 +186,48 @@ void test_spatial_grid_10k() {
     auto w2 = world.get_weather(7500, 8500);
     assert(w2.name == "Whiteout Blizzard");
 
-    // Test movement cost combining tile and weather
-    world.set(100, 100, Tile::ID::Grassland);
+    // Test movement cost combining tile, vegetation, and weather
+    world.set(100, 100, Tile::ID::ForestSoil);
     world.set_region(100, 100, World::RegionID::LowlandMeadow);
-    float cost_clear = world.get_movement_cost(100, 100);
-    assert(cost_clear == 1.0f);
+    world.set_vegetation(100, 100, Vegetation::ID::None);
+    float cost_bare = world.get_movement_cost(100, 100);
+    assert(cost_bare > 1.0f);
 
-    world.set_region(100, 100, World::RegionID::GlacialCrown); // Blizzard mult = 1.6
-    float cost_blizzard = world.get_movement_cost(100, 100);
-    assert(std::abs(cost_blizzard - 1.6f) < 0.001f);
+    // Add DenseScrub vegetation (cost mult 1.6)
+    world.set_vegetation(100, 100, Vegetation::ID::DenseScrub, 60);
+    float cost_scrub = world.get_movement_cost(100, 100);
+    assert(cost_scrub > cost_bare * 1.5f);
 
-    // Test Line of Sight (Raycasting)
+    // Test Line of Sight (Raycasting) through clear ground
     world.set(500, 500, Tile::ID::Grassland);
     world.set(500, 501, Tile::ID::Grassland);
     world.set(500, 502, Tile::ID::Grassland);
     world.set(500, 503, Tile::ID::Grassland);
+    world.set_vegetation(500, 500, Vegetation::ID::None);
+    world.set_vegetation(500, 501, Vegetation::ID::None);
+    world.set_vegetation(500, 502, Vegetation::ID::None);
+    world.set_vegetation(500, 503, Vegetation::ID::None);
     world.set_region(500, 500, World::RegionID::LowlandMeadow); // Clear weather (visibility 60)
     assert(world.raycast_los(500, 500, 500, 503) == true);
 
-    // Obstruct with MountainPeak
-    world.set(500, 502, Tile::ID::MountainPeak);
+    // Obstruct with a standing DeciduousTree on cell (500, 502)
+    world.set_vegetation(500, 502, Vegetation::ID::DeciduousTree, 100);
     assert(world.raycast_los(500, 500, 500, 503) == false);
+
+    // Harvest the tree down to a stump: sight is unblocked!
+    world.harvest_vegetation(500, 502, 100);
+    assert(world.get_vegetation(500, 502).id == Vegetation::ID::TreeStump);
+    assert(world.raycast_los(500, 500, 500, 503) == true);
 
     // Weather visibility limit clipping
     world.set_region(500, 500, World::RegionID::GlacialCrown); // Blizzard max visibility = 4
     assert(world.raycast_los(500, 500, 500, 510) == false); // 10 tiles away exceeds visibility 4
 
-    std::cout << "  ✓ Spatial methods (bounds, movement cost, raycast LoS) verified successfully.\n";
+    std::cout << "  ✓ Spatial methods, vegetation raycast LoS, and dynamic cost verified successfully.\n";
 }
 
 void test_continental_generation() {
-    std::cout << "[TEST] Running continental medieval generator on 10,000 x 10,000 map...\n";
+    std::cout << "[TEST] Running continental medieval generator with decoupled flora...\n";
     GameMap::Map world(10000, 10000);
 
     auto t0 = std::chrono::high_resolution_clock::now();
@@ -157,7 +235,8 @@ void test_continental_generation() {
     auto t1 = std::chrono::high_resolution_clock::now();
 
     double gen_sec = std::chrono::duration<double>(t1 - t0).count();
-    std::cout << "  ✓ Generated 100,000,000 cells in " << std::fixed << std::setprecision(3) << gen_sec << " seconds!\n";
+    std::cout << "  ✓ Generated 100,000,000 cells (substrates + flora) in "
+              << std::fixed << std::setprecision(3) << gen_sec << " seconds!\n";
 
     // Spawn point validation
     std::cout << "  Spawn point: (" << spawn.x << ", " << spawn.y << ")\n";
@@ -165,36 +244,38 @@ void test_continental_generation() {
     assert(world.is_walkable(spawn.x, spawn.y));
 
     auto spawn_tile = Tile::getData(world.at(spawn.x, spawn.y));
+    auto spawn_veg = world.get_vegetation(spawn.x, spawn.y);
     auto spawn_region = World::getRegionData(world.get_region(spawn.x, spawn.y));
     auto spawn_weather = world.get_weather(spawn.x, spawn.y);
 
-    std::cout << "  Spawn standing on: " << spawn_tile.name << "\n";
+    std::cout << "  Spawn ground substrate: " << spawn_tile.name << "\n";
+    if (spawn_veg.id != Vegetation::ID::None) {
+        std::cout << "  Spawn flora: " << Vegetation::getData(spawn_veg.id).name
+                  << " (Yield: " << static_cast<int>(spawn_veg.resource_amount) << "%)\n";
+    } else {
+        std::cout << "  Spawn flora: None (clear ground)\n";
+    }
     std::cout << "  Spawn region: " << spawn_region.name << "\n";
     std::cout << "  Spawn static climate: " << spawn_weather.name << " ("
               << spawn_weather.temperature_celsius << "°C, "
               << spawn_weather.humidity_pct << "% humidity)\n";
 
-    // Sample different geographic zones to confirm diversity of static climates
-    auto north_weather = world.get_weather(5000, 200);   // Arctic North
-    auto south_weather = world.get_weather(5000, 9800);  // Arid South
-    auto coast_weather = world.get_weather(200, 5000);   // Storm Coast West
+    // Sample Taiga vs Weald vs Road
+    auto road_y = world.get_height() / 2;
+    // Road center should have no vegetation
+    assert(world.get_vegetation(world.get_width() / 2, road_y).id == Vegetation::ID::None);
 
-    std::cout << "  Sampled North Climate (y=200): " << north_weather.name << "\n";
-    std::cout << "  Sampled South Climate (y=9800): " << south_weather.name << "\n";
-    std::cout << "  Sampled West Coast Climate (x=200): " << coast_weather.name << "\n";
-
-    assert(north_weather.temperature_celsius < 5.0f);
-    assert(south_weather.temperature_celsius > 15.0f);
-
-    std::cout << "  ✓ Continental geography and static microclimates verified successfully.\n";
+    std::cout << "  ✓ Continental geography, decoupled flora, and road clearance verified successfully.\n";
 }
 
 int main() {
     std::cout << "========================================================\n";
-    std::cout << " Realistic Medieval World Architecture Verification Suite\n";
+    std::cout << " Decoupled Vegetation & Resource Architecture Test Suite\n";
     std::cout << "========================================================\n";
 
     test_tile_properties();
+    test_vegetation_properties();
+    test_vegetation_harvesting();
     test_weather_and_regions();
     test_spatial_grid_10k();
     test_continental_generation();

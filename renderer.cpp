@@ -11,7 +11,8 @@ void Renderer::render(const GameMap::Map &map,
                       const Entity &player,
                       const Camera &camera,
                       const FOV &fov,
-                      Terminal &terminal) {
+                      Terminal &terminal,
+                      std::string_view status_message) {
   std::string buffer;
   int view_w = camera.get_viewport_width();
   int view_h = camera.get_viewport_height();
@@ -32,10 +33,10 @@ void Renderer::render(const GameMap::Map &map,
   buffer.append(std::string(left_pad, '='));
   buffer.append(title);
   buffer.append(std::string(right_pad, '='));
-  buffer.push_back('\n');
+  buffer.append("\033[K\n");
 
   // Tracking ANSI color styling to minimize escape sequences
-  enum class Style { None, Normal, Dim, Player };
+  enum class Style { None, Normal, Dim, Player, Flora, FloraDim };
   Style current_style = Style::None;
 
   auto set_style = [&](Style new_style) {
@@ -51,6 +52,12 @@ void Renderer::render(const GameMap::Map &map,
       break;
     case Style::Player:
       buffer.append("\033[1;33m"); // Bright yellow for player
+      break;
+    case Style::Flora:
+      buffer.append("\033[1;32m"); // Bright green for standing flora
+      break;
+    case Style::FloraDim:
+      buffer.append("\033[0;32m"); // Dim green for explored flora
       break;
     case Style::None:
       buffer.append("\033[0m");
@@ -76,33 +83,71 @@ void Renderer::render(const GameMap::Map &map,
           set_style(Style::Player);
           buffer.push_back(player.glyph);
         } else {
-          set_style(Style::Normal);
-          buffer.push_back(Tile::getData(map.at(wx, wy)).glyph);
+          auto veg = map.get_vegetation(wx, wy);
+          if (veg.id != Vegetation::ID::None) {
+            set_style(Style::Flora);
+            buffer.push_back(Vegetation::getData(veg.id).glyph);
+          } else {
+            set_style(Style::Normal);
+            buffer.push_back(Tile::getData(map.at(wx, wy)).glyph);
+          }
         }
       } else if (fov.is_explored(wx, wy)) {
-        set_style(Style::Dim);
-        buffer.push_back(Tile::getData(map.at(wx, wy)).glyph);
+        auto veg = map.get_vegetation(wx, wy);
+        if (veg.id != Vegetation::ID::None) {
+          set_style(Style::FloraDim);
+          buffer.push_back(Vegetation::getData(veg.id).glyph);
+        } else {
+          set_style(Style::Dim);
+          buffer.push_back(Tile::getData(map.at(wx, wy)).glyph);
+        }
       } else {
         set_style(Style::Normal);
         buffer.push_back(' ');
       }
     }
     set_style(Style::Normal);
-    buffer.push_back('\n');
+    buffer.append("\033[K\n");
   }
   set_style(Style::Normal);
 
   // HUD & Status
   auto current_tile = Tile::getData(map.at(player.x, player.y));
+  auto current_veg = map.get_vegetation(player.x, player.y);
+  auto current_region = World::getRegionData(map.get_region(player.x, player.y));
+  auto current_weather = map.get_weather(player.x, player.y);
+
   buffer.append(std::string(view_w, '-'));
-  buffer.push_back('\n');
-  buffer.append(std::format("Position: ({}, {}) | Standing on: {}\n",
-                            player.x, player.y, current_tile.name));
-  buffer.append(std::format("Camera: ({}, {}) | FOV Radius: {}\n",
-                            cam_x, cam_y, fov.get_radius()));
-  buffer.append("Controls: [WASD / Arrows / HJKL] Move | [Q] Quit\n");
+  buffer.append("\033[K\n");
+
+  if (current_veg.id != Vegetation::ID::None) {
+    auto vdata = Vegetation::getData(current_veg.id);
+    buffer.append(std::format("Pos: ({}, {}) | Flora: {} [{}: {}%] over {}",
+                              player.x, player.y, vdata.name,
+                              Vegetation::resource_name(vdata.resourceType),
+                              current_veg.resource_amount, current_tile.name));
+  } else {
+    buffer.append(std::format("Pos: ({}, {}) | Ground: {}",
+                              player.x, player.y, current_tile.name));
+  }
+  buffer.append("\033[K\n");
+
+  buffer.append(std::format("Region: {} | Climate: {} ({:.1f}°C)",
+                            current_region.name, current_weather.name,
+                            current_weather.temperature_celsius));
+  buffer.append("\033[K\n");
+
+  // Fixed 1-line action / control bar to prevent height oscillation
+  if (!status_message.empty()) {
+    buffer.append(std::format(">> {}", status_message));
+  } else {
+    buffer.append("Controls: [WASD / Arrows] Move | [E / Space] Harvest | [Q] Quit");
+  }
+  buffer.append("\033[K\n");
+
+  // Bottom border without trailing newline to avoid scrolling on row 24
   buffer.append(std::string(view_w, '-'));
-  buffer.push_back('\n');
+  buffer.append("\033[K\033[J");
 
   terminal.present(buffer);
 }

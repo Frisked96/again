@@ -1,5 +1,6 @@
 #include "engine.hpp"
 #include "map_generator.hpp"
+#include <format>
 
 namespace Engine {
 
@@ -29,7 +30,7 @@ void GameEngine::run() {
   is_running = true;
 
   while (is_running) {
-    renderer.render(map, player, camera, fov, terminal);
+    renderer.render(map, player, camera, fov, terminal, status_message);
     handle_input();
   }
 
@@ -61,6 +62,24 @@ void GameEngine::handle_input() {
   case Key::Right:
     dx = 1;
     break;
+  case Key::Interact: {
+    if (map.has_vegetation(player.x, player.y)) {
+      auto result = map.harvest_vegetation(player.x, player.y, 25);
+      if (result.amount_gathered > 0) {
+        status_message = std::format("Harvested {} {} from {}!{}",
+                                     result.amount_gathered,
+                                     Vegetation::resource_name(result.resource),
+                                     result.plant_name,
+                                     result.depleted ? " Depleted / felled into stump!" : "");
+      } else {
+        status_message = "Nothing more to harvest here.";
+      }
+    } else {
+      status_message = "No flora here to harvest.";
+    }
+    tick();
+    return;
+  }
   case Key::Timeout:
     // Hybrid time heartbeat
     tick();
@@ -79,6 +98,7 @@ void GameEngine::handle_input() {
     player.move(dx, dy);
     camera.update(player.x, player.y, map.get_width(), map.get_height());
     fov.compute(map, player.x, player.y);
+    status_message.clear();
     tick();
   }
 }
