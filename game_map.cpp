@@ -110,8 +110,33 @@ World::RegionID Map::get_region(int x, int y) const noexcept {
 
 Climate::WeatherData Map::get_weather(int x, int y) const noexcept {
   World::RegionID reg = get_region(x, y);
+  if (climate_gradient.is_initialized() && in_bounds(x, y)) {
+    Climate::WeatherID wid = climate_gradient.sample_weather_id(x, y);
+    auto data = Climate::getWeatherData(wid);
+    data.temperature_celsius = climate_gradient.sample_temperature_celsius(x, y);
+    data.humidity_pct = climate_gradient.sample_humidity_pct(x, y);
+    return data;
+  }
   auto region_data = World::getRegionData(reg);
   return Climate::getWeatherData(region_data.default_weather);
+}
+
+void Map::init_climate(std::vector<float> macro_elev, std::vector<float> macro_moist, std::vector<float> macro_temp) {
+  climate_gradient.init(width, height, std::move(macro_elev), std::move(macro_moist), std::move(macro_temp));
+}
+
+float Map::get_temperature(int x, int y) const noexcept {
+  if (climate_gradient.is_initialized() && in_bounds(x, y)) {
+    return climate_gradient.sample_temperature_celsius(x, y);
+  }
+  return get_weather(x, y).temperature_celsius;
+}
+
+float Map::get_humidity(int x, int y) const noexcept {
+  if (climate_gradient.is_initialized() && in_bounds(x, y)) {
+    return climate_gradient.sample_humidity_pct(x, y);
+  }
+  return get_weather(x, y).humidity_pct;
 }
 
 bool Map::in_bounds(int x, int y) const noexcept {

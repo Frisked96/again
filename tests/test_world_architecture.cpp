@@ -300,6 +300,94 @@ void test_vision_system() {
     std::cout << "  ✓ Decoupled Vision::has_line_of_sight and Vision::FOV verified successfully.\n";
 }
 
+void test_pregenerated_climate_gradient() {
+    std::cout << "[TEST] Validating pre-generated continental climate gradient map...\n";
+    GameMap::Map world(10000, 10000);
+    GameMap::MapGenerator::generate(world, 1337);
+
+    assert(world.has_climate_gradient() == true);
+
+    // 1. Validate North-to-South continental temperature progression
+    float north_temp = world.get_temperature(5000, 200);
+    float mid_temp = world.get_temperature(5000, 5000);
+    float south_temp = world.get_temperature(5000, 9800);
+
+    std::cout << "  Continental North Temp: " << north_temp << "°C\n";
+    std::cout << "  Continental Mid Temp:   " << mid_temp << "°C\n";
+    std::cout << "  Continental South Temp: " << south_temp << "°C\n";
+
+    assert(north_temp < mid_temp);
+    assert(mid_temp < south_temp);
+    assert(north_temp < 0.0f);   // Subzero Arctic / Tundra
+    assert(south_temp > 25.0f);  // Warm South
+
+    // Validate that southern arid desert basins peak around 40°C
+    float peak_desert_temp = -100.0f;
+    for (int x = 500; x < 9500; x += 500) {
+        for (int y = 8500; y < 9950; y += 200) {
+            float t = world.get_temperature(x, y);
+            if (t > peak_desert_temp) {
+                peak_desert_temp = t;
+            }
+        }
+    }
+    std::cout << "  Peak Desert Basin Temp: " << peak_desert_temp << "°C\n";
+    assert(peak_desert_temp >= 38.0f && peak_desert_temp <= 42.0f); // Deserts peak around 40°C!
+
+    // Validate elevation lapse rate (mountain summit vs lowland at same latitude)
+    float valley_temp = world.get_temperature(1000, 5000);
+    std::cout << "  Mid Latitude Valley:    " << valley_temp << "°C (vs Mountain: " << mid_temp << "°C)\n";
+    assert(mid_temp < valley_temp); // Mountain is colder than valley at same latitude!
+
+    // 2. Validate tile-by-tile smooth continuity (zero 20°C jumps across borders)
+    float max_step_delta = 0.0f;
+    for (int y = 4500; y < 5500; ++y) {
+        float t1 = world.get_temperature(5000, y);
+        float t2 = world.get_temperature(5000, y + 1);
+        float dt = std::abs(t2 - t1);
+        if (dt > max_step_delta) {
+            max_step_delta = dt;
+        }
+        assert(dt < 0.1f); // Must be soft & gradual (< 0.1°C per tile step)
+    }
+
+    std::cout << "  Max per-tile step delta across 1000 consecutive tiles: "
+              << max_step_delta << "°C\n";
+    assert(max_step_delta < 0.05f); // Typically ~0.005°C per tile!
+
+    // 3. Validate procedural randomized weather generation across regions (like world gen)
+    std::vector<std::string_view> observed_weathers;
+    for (int sample_y = 500; sample_y < 9500; sample_y += 1500) {
+        for (int sample_x = 500; sample_x < 9500; sample_x += 1500) {
+            auto sw = world.get_weather(sample_x, sample_y);
+            bool found = false;
+            for (auto name : observed_weathers) {
+                if (name == sw.name) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                observed_weathers.push_back(sw.name);
+            }
+        }
+    }
+    std::cout << "  Procedural distinct weather conditions sampled: "
+              << observed_weathers.size() << " (";
+    for (size_t i = 0; i < observed_weathers.size(); ++i) {
+        std::cout << (i == 0 ? "" : ", ") << observed_weathers[i];
+    }
+    std::cout << ")\n";
+    assert(observed_weathers.size() >= 4); // Diverse procedural weather distribution
+
+    // 4. Validate get_weather integrates pre-generated gradient
+    auto w = world.get_weather(5000, 5000);
+    assert(std::abs(w.temperature_celsius - mid_temp) < 0.0001f);
+    assert(w.humidity_pct >= 5.0f && w.humidity_pct <= 100.0f);
+
+    std::cout << "  ✓ Pre-generated continental climate gradient verified successfully (no sudden temperature jumps).\n";
+}
+
 int main() {
     std::cout << "========================================================\n";
     std::cout << " Decoupled Vegetation & Resource Architecture Test Suite\n";
@@ -312,6 +400,7 @@ int main() {
     test_spatial_grid_10k();
     test_continental_generation();
     test_vision_system();
+    test_pregenerated_climate_gradient();
 
     print_memory_usage();
 

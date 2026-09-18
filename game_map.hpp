@@ -21,6 +21,7 @@ private:
   SpatialGrid2D<Tile::ID> tile_grid;
   SpatialGrid2D<World::RegionID> region_grid;
   SpatialGrid2D<Vegetation::Cell> vegetation_grid;
+  Climate::GradientMap climate_gradient;
 
 public:
   Map(int w = 10000, int h = 10000,
@@ -44,10 +45,17 @@ public:
   bool has_vegetation(int x, int y) const noexcept;
   HarvestResult harvest_vegetation(int x, int y, int amount = 25) noexcept;
 
-  // Region and static climate accessors
+  // Region and climate accessors
   void set_region(int x, int y, World::RegionID id) noexcept;
   World::RegionID get_region(int x, int y) const noexcept;
   Climate::WeatherData get_weather(int x, int y) const noexcept;
+
+  // Pre-generated continental climate gradient
+  void init_climate(std::vector<float> macro_elev, std::vector<float> macro_moist, std::vector<float> macro_temp = {});
+  [[nodiscard]] bool has_climate_gradient() const noexcept { return climate_gradient.is_initialized(); }
+  [[nodiscard]] float get_temperature(int x, int y) const noexcept;
+  [[nodiscard]] float get_humidity(int x, int y) const noexcept;
+  [[nodiscard]] const Climate::GradientMap& get_climate_gradient() const noexcept { return climate_gradient; }
 
   // Spatial queries
   bool in_bounds(int x, int y) const noexcept;

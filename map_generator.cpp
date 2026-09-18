@@ -33,6 +33,7 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
   constexpr int MACRO_DIM = 32;
   std::vector<float> macro_elev(MACRO_DIM * MACRO_DIM);
   std::vector<float> macro_moist(MACRO_DIM * MACRO_DIM);
+  std::vector<float> macro_temp(MACRO_DIM * MACRO_DIM);
 
   for (int my = 0; my < MACRO_DIM; ++my) {
     for (int mx = 0; mx < MACRO_DIM; ++mx) {
@@ -41,6 +42,7 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
       // Base noise
       float e = hash_float(static_cast<uint32_t>(mx), static_cast<uint32_t>(my), seed + 101);
       float m = hash_float(static_cast<uint32_t>(mx), static_cast<uint32_t>(my), seed + 202);
+      float t = hash_float(static_cast<uint32_t>(mx), static_cast<uint32_t>(my), seed + 303);
 
       // Shape continental landmass:
       // Mountain spine running through upper-middle diagonal
@@ -58,8 +60,12 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
 
       macro_elev[idx] = std::clamp(e, 0.0f, 1.0f);
       macro_moist[idx] = std::clamp(m, 0.0f, 1.0f);
+      macro_temp[idx] = std::clamp(t, 0.0f, 1.0f);
     }
   }
+
+  // Pre-generate and store continuous continental climate gradient on map
+  map.init_climate(macro_elev, macro_moist, macro_temp);
 
   // 2. Generate 100M cells row-by-row sequentially for maximum memory bandwidth
   const float step_x = static_cast<float>(MACRO_DIM - 1) / static_cast<float>(std::max(1, width - 1));
@@ -74,9 +80,6 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
     int my0 = static_cast<int>(gy);
     int my1 = std::min(MACRO_DIM - 1, my0 + 1);
     float ty = smoothstep(gy - static_cast<float>(my0));
-
-    // Latitude temperature gradient: North (cold, y=0) to South (hot, y=height)
-    float latitude_temp = 0.05f + 0.85f * (static_cast<float>(y) / static_cast<float>(height));
 
     for (int x = 0; x < width; ++x) {
       float gx = static_cast<float>(x) * step_x;
@@ -99,8 +102,16 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
       float moist = (1.0f - ty) * ((1.0f - tx) * m00 + tx * m10) +
                     ty * ((1.0f - tx) * m01 + tx * m11);
 
-      // Elevation lapse rate: higher elevations are significantly colder
-      float effective_temp = std::clamp(latitude_temp - 0.45f * elev, 0.0f, 1.0f);
+      float t00 = macro_temp[my0 * MACRO_DIM + mx0];
+      float t10 = macro_temp[my0 * MACRO_DIM + mx1];
+      float t01 = macro_temp[my1 * MACRO_DIM + mx0];
+      float t11 = macro_temp[my1 * MACRO_DIM + mx1];
+      float temp_noise = (1.0f - ty) * ((1.0f - tx) * t00 + tx * t10) +
+                         ty * ((1.0f - tx) * t01 + tx * t11);
+
+      // Continental climate: latitude gradient, seeded thermal variance, elevation lapse & arid heat basin
+      float y_norm = static_cast<float>(y) / static_cast<float>(std::max(1, height));
+      float effective_temp = Climate::GradientMap::compute_effective_temp(y_norm, elev, temp_noise);
 
       // Local micro-noise for natural terrain variation
       uint32_t local_h = hash2d(static_cast<uint32_t>(x), static_cast<uint32_t>(y), seed);
