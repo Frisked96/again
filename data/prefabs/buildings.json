@@ -1,0 +1,199 @@
+{
+  "$schema": "building_template_v1",
+  "templates": [
+    {
+      "id": "peasant_hovel",
+      "name": "Peasant Hovel",
+      "category": "residential",
+      "settlement_tiers": ["hamlet", "village"],
+      "biomes": ["lowland_meadow", "deciduous_weald", "peat_fen", "dry_steppe"],
+      "width": 6,
+      "height": 6,
+      "wall_type": "WoodWall",
+      "floor_type": "WoodFloor",
+      "layout": [
+        "######",
+        "#....#",
+        "#....#",
+        "#....#",
+        "#....#",
+        "##+###"
+      ],
+      "rooms": [
+        {
+          "name": "Hovel Living Space",
+          "x1": 1, "y1": 1, "x2": 4, "y2": 4
+        }
+      ]
+    },
+    {
+      "id": "village_cottage",
+      "name": "Village Cottage",
+      "category": "residential",
+      "settlement_tiers": ["village", "town"],
+      "biomes": ["lowland_meadow", "deciduous_weald", "dry_steppe"],
+      "width": 8,
+      "height": 8,
+      "wall_type": "WoodWall",
+      "floor_type": "WoodFloor",
+      "layout": [
+        "########",
+        "#......#",
+        "#......#",
+        "#...####",
+        "#...+..#",
+        "#......#",
+        "#......#",
+        "###+####"
+      ],
+      "rooms": [
+        {
+          "name": "Living Room & Hearth",
+          "x1": 1, "y1": 1, "x2": 6, "y2": 3
+        },
+        {
+          "name": "Bedroom",
+          "x1": 4, "y1": 4, "x2": 6, "y2": 6
+        }
+      ]
+    },
+    {
+      "id": "blacksmith_smithy",
+      "name": "Village Smithy",
+      "category": "commercial",
+      "settlement_tiers": ["village", "town", "city"],
+      "biomes": ["lowland_meadow", "deciduous_weald", "dry_steppe", "highland_peaks"],
+      "width": 11,
+      "height": 9,
+      "wall_type": "StoneWall",
+      "floor_type": "StoneFloor",
+      "layout": [
+        "###########",
+        "#.....#...#",
+        "#..&..#...#",
+        "#.....#...#",
+        "#.....#...+",
+        "#.....#...#",
+        "#.....#...#",
+        "#.....#...#",
+        "#####+#####"
+      ],
+      "rooms": [
+        {
+          "name": "Forge & Anvil Court",
+          "x1": 1, "y1": 1, "x2": 5, "y2": 7
+        },
+        {
+          "name": "Smith's Quarters",
+          "x1": 7, "y1": 1, "x2": 9, "y2": 7
+        }
+      ]
+    },
+    {
+      "id": "coaching_inn",
+      "name": "The Wayfarer's Inn",
+      "category": "commercial",
+      "settlement_tiers": ["town", "city", "village"],
+      "biomes": ["lowland_meadow", "deciduous_weald", "dry_steppe"],
+      "width": 14,
+      "height": 12,
+      "wall_type": "WoodWall",
+      "floor_type": "WoodFloor",
+      "layout": [
+        "##############",
+        "#......#.....#",
+        "#......#.....#",
+        "#..==..#..>..#",
+        "#......###+###",
+        "#......#.....#",
+        "#...+..#.....#",
+        "#......###+###",
+        "#......#.....#",
+        "#......+.....#",
+        "#......#.....#",
+        "######+#######"
+      ],
+      "rooms": [
+        {
+          "name": "Tavern Taproom",
+          "x1": 1, "y1": 1, "x2": 6, "y2": 10
+        },
+        {
+          "name": "Cellar Storage",
+          "x1": 8, "y1": 1, "x2": 12, "y2": 3
+        },
+        {
+          "name": "Guest Room North",
+          "x1": 8, "y1": 5, "x2": 12, "y2": 6
+        },
+        {
+          "name": "Guest Room South",
+          "x1": 8, "y1": 8, "x2": 12, "y2": 10
+        }
+      ]
+    },
+    {
+      "id": "village_chapel",
+      "name": "Sanctuary Chapel",
+      "category": "religious",
+      "settlement_tiers": ["village", "town", "city"],
+      "biomes": ["lowland_meadow", "deciduous_weald", "peat_fen", "highland_peaks"],
+      "width": 11,
+      "height": 13,
+      "wall_type": "StoneWall",
+      "floor_type": "StoneFloor",
+      "layout": [
+        "###########",
+        "#....>....#",
+        "#.........#",
+        "#....#....#",
+        "\".........\"",
+        "#.........#",
+        "#.........#",
+        "#.........#",
+        "\".........\"",
+        "#.........#",
+        "#.........#",
+        "#.........#",
+        "#####+#####"
+      ],
+      "rooms": [
+        {
+          "name": "Altar Sanctuary",
+          "x1": 1, "y1": 1, "x2": 9, "y2": 3
+        },
+        {
+          "name": "Nave",
+          "x1": 1, "y1": 4, "x2": 9, "y2": 11
+        }
+      ]
+    },
+    {
+      "id": "guard_outpost",
+      "name": "Watchtower Post",
+      "category": "military",
+      "settlement_tiers": ["hamlet", "village", "town", "city"],
+      "biomes": ["lowland_meadow", "deciduous_weald", "frost_tundra", "arid_waste"],
+      "width": 8,
+      "height": 8,
+      "wall_type": "StoneWall",
+      "floor_type": "StoneFloor",
+      "layout": [
+        "########",
+        "\"......\"",
+        "#......#",
+        "#......#",
+        "#..>...#",
+        "#......#",
+        "\"......\"",
+        "###+####"
+      ],
+      "rooms": [
+        {
+          "name": "Guardpost & Armory",
+          "x1": 1, "y1": 1, "x2": 6, "y2": 6
+        }
+      ]
+    }
+  ]
+}

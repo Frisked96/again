@@ -5,6 +5,10 @@
 #include "vegetation.hpp"
 #include "weather.hpp"
 
+namespace Architecture {
+struct BuildingTemplate;
+}
+
 namespace GameMap {
 
 struct HarvestResult {
@@ -56,6 +60,12 @@ public:
   [[nodiscard]] float get_temperature(int x, int y) const noexcept;
   [[nodiscard]] float get_humidity(int x, int y) const noexcept;
   [[nodiscard]] const Climate::GradientMap& get_climate_gradient() const noexcept { return climate_gradient; }
+
+  // Architectural stamping & door interaction
+  [[nodiscard]] bool can_stamp_building(int x, int y, int w, int h) const noexcept;
+  bool stamp_building(int x, int y, const Architecture::BuildingTemplate &prefab, int rotation = 0) noexcept;
+  bool open_door(int x, int y) noexcept;
+  bool close_door(int x, int y) noexcept;
 
   // Spatial queries
   bool in_bounds(int x, int y) const noexcept;

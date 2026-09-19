@@ -1,4 +1,5 @@
 #include "game_map.hpp"
+#include "building_prefab.hpp"
 #include "vision.hpp"
 #include <cmath>
 #include <cstdlib>
@@ -182,6 +183,120 @@ int Map::get_visibility_limit(int x, int y) const noexcept {
 
 bool Map::raycast_los(int x0, int y0, int x1, int y1) const noexcept {
   return Vision::has_line_of_sight(*this, x0, y0, x1, y1);
+}
+
+bool Map::can_stamp_building(int x, int y, int w, int h) const noexcept {
+  if (!in_bounds(x, y) || !in_bounds(x + w - 1, y + h - 1)) {
+    return false;
+  }
+  for (int dy = 0; dy < h; ++dy) {
+    for (int dx = 0; dx < w; ++dx) {
+      Tile::ID t = at(x + dx, y + dy);
+      if (t == Tile::ID::DeepWater || t == Tile::ID::MountainPeak || t == Tile::ID::Cliff) {
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+bool Map::stamp_building(int x, int y, const Architecture::BuildingTemplate &prefab, int rotation) noexcept {
+  if (!prefab.is_valid()) {
+    return false;
+  }
+
+  int rot = ((rotation % 360) + 360) % 360;
+  int orig_w = prefab.width;
+  int orig_h = prefab.height;
+
+  int target_w = (rot == 90 || rot == 270) ? orig_h : orig_w;
+  int target_h = (rot == 90 || rot == 270) ? orig_w : orig_h;
+
+  if (!in_bounds(x, y) || !in_bounds(x + target_w - 1, y + target_h - 1)) {
+    return false;
+  }
+
+  for (int tr = 0; tr < target_h; ++tr) {
+    for (int tc = 0; tc < target_w; ++tc) {
+      int sr = 0;
+      int sc = 0;
+      if (rot == 0) {
+        sr = tr;
+        sc = tc;
+      } else if (rot == 90) {
+        sr = orig_h - 1 - tc;
+        sc = tr;
+      } else if (rot == 180) {
+        sr = orig_h - 1 - tr;
+        sc = orig_w - 1 - tc;
+      } else if (rot == 270) {
+        sr = tc;
+        sc = orig_w - 1 - tr;
+      }
+
+      char glyph = ' ';
+      if (sr >= 0 && sr < orig_h && sc >= 0 && sc < static_cast<int>(prefab.layout[sr].size())) {
+        glyph = prefab.layout[sr][sc];
+      }
+
+      int world_x = x + tc;
+      int world_y = y + tr;
+
+      // Always clear vegetation under building footprint
+      set_vegetation(world_x, world_y, Vegetation::ID::None, 0);
+
+      // Translate prefab glyph to Tile::ID
+      switch (glyph) {
+      case '#':
+        set(world_x, world_y, prefab.wall_type);
+        break;
+      case '.':
+        set(world_x, world_y, prefab.floor_type);
+        break;
+      case '+':
+        set(world_x, world_y, Tile::ID::DoorClosed);
+        break;
+      case '/':
+        set(world_x, world_y, Tile::ID::DoorOpen);
+        break;
+      case '"':
+        set(world_x, world_y, Tile::ID::Window);
+        break;
+      case '>':
+        set(world_x, world_y, Tile::ID::StairsDown);
+        break;
+      case '&':
+        set(world_x, world_y, Tile::ID::Anvil);
+        break;
+      case '=':
+        set(world_x, world_y, Tile::ID::Counter);
+        break;
+      default:
+        if (glyph != ' ') {
+          set(world_x, world_y, prefab.floor_type);
+        }
+        break;
+      }
+    }
+  }
+
+  return true;
+}
+
+bool Map::open_door(int x, int y) noexcept {
+  if (in_bounds(x, y) && at(x, y) == Tile::ID::DoorClosed) {
+    set(x, y, Tile::ID::DoorOpen);
+    return true;
+  }
+  return false;
+}
+
+bool Map::close_door(int x, int y) noexcept {
+  if (in_bounds(x, y) && at(x, y) == Tile::ID::DoorOpen) {
+    set(x, y, Tile::ID::DoorClosed);
+    return true;
+  }
+  return false;
 }
 
 } // namespace GameMap

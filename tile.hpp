@@ -43,6 +43,14 @@ enum class ID : std::uint8_t {
   Farmland,
   StoneWall,
   WoodWall,
+  WoodFloor,
+  StoneFloor,
+  DoorClosed,
+  DoorOpen,
+  Window,
+  StairsDown,
+  Anvil,
+  Counter,
 
   Count
 };
@@ -125,6 +133,22 @@ inline constexpr Data getData(ID id) noexcept {
     return {"stone wall", '#', true, true, 999.0f, 0};
   case ID::WoodWall:
     return {"timber palisade", '#', true, true, 999.0f, 90};
+  case ID::WoodFloor:
+    return {"timber floor", '.', false, false, 0.9f, 60};
+  case ID::StoneFloor:
+    return {"flagstone floor", '.', false, false, 0.9f, 0};
+  case ID::DoorClosed:
+    return {"closed door", '+', true, true, 1.0f, 50};
+  case ID::DoorOpen:
+    return {"open door", '/', false, false, 1.0f, 50};
+  case ID::Window:
+    return {"barred window", '"', true, false, 999.0f, 30};
+  case ID::StairsDown:
+    return {"cellar stairs", '>', false, false, 1.0f, 0};
+  case ID::Anvil:
+    return {"iron anvil", '&', true, false, 999.0f, 0};
+  case ID::Counter:
+    return {"wood counter", '=', true, false, 999.0f, 40};
 
   default:
     return {"unknown", '?', true, true, 999.0f, 0};

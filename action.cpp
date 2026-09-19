@@ -17,6 +17,13 @@ ActionResult ActionSystem::execute(const Action &action,
       return {false, false, "The way is blocked by the world boundary."};
     }
 
+    // Bump-to-open door interaction
+    if (map.at(target_x, target_y) == Tile::ID::DoorClosed) {
+      map.open_door(target_x, target_y);
+      fov.compute(map, player.x, player.y);
+      return {true, true, "You open the door."};
+    }
+
     if (!map.is_walkable(target_x, target_y)) {
       return {false, false, "The way is impassable."};
     }

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cassert>
 #include <algorithm>
+#include <type_traits>
 
 template <typename T>
 class SpatialGrid2D {
@@ -57,9 +58,9 @@ public:
 
     // Bounds check supporting both signed and unsigned integers safely
     template <typename IntT>
-        requires std::is_integral_v<IntT>
     [[nodiscard]]
     bool in_bounds(IntT x, IntT y) const noexcept {
+        static_assert(std::is_integral_v<IntT>, "in_bounds coordinates must be integral");
         if constexpr (std::is_signed_v<IntT>) {
             return x >= 0 && y >= 0 &&
                    static_cast<size_type>(x) < width_ &&
@@ -72,16 +73,16 @@ public:
 
     // Element access (non-const)
     template <typename IntT>
-        requires std::is_integral_v<IntT>
     T& operator()(IntT x, IntT y) noexcept {
+        static_assert(std::is_integral_v<IntT>, "coordinates must be integral");
         assert(in_bounds(x, y));
         return data_[index(static_cast<size_type>(x), static_cast<size_type>(y))];
     }
 
     // Element access (const)
     template <typename IntT>
-        requires std::is_integral_v<IntT>
     const T& operator()(IntT x, IntT y) const noexcept {
+        static_assert(std::is_integral_v<IntT>, "coordinates must be integral");
         assert(in_bounds(x, y));
         return data_[index(static_cast<size_type>(x), static_cast<size_type>(y))];
     }

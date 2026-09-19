@@ -5,6 +5,10 @@
 #include "../tile.hpp"
 #include "../vegetation.hpp"
 #include "../vision.hpp"
+#include "../building_prefab.hpp"
+#include "../action.hpp"
+#include "../entity.hpp"
+#include "../camera.hpp"
 
 #include <cassert>
 #include <chrono>
@@ -388,6 +392,128 @@ void test_pregenerated_climate_gradient() {
     std::cout << "  ✓ Pre-generated continental climate gradient verified successfully (no sudden temperature jumps).\n";
 }
 
+void test_building_prefabs_and_doors() {
+    std::cout << "[TEST] Validating structural tiles, JSON prefabs, map stamping, and bump-to-open doors...\n";
+
+    // 1. Validate new structural tiles
+    auto wood_floor = Tile::getData(Tile::ID::WoodFloor);
+    assert(!wood_floor.blocksMovement);
+    assert(!wood_floor.blocksSight);
+    assert(wood_floor.glyph == '.');
+
+    auto stone_floor = Tile::getData(Tile::ID::StoneFloor);
+    assert(!stone_floor.blocksMovement);
+    assert(!stone_floor.blocksSight);
+
+    auto door_closed = Tile::getData(Tile::ID::DoorClosed);
+    assert(door_closed.blocksMovement);
+    assert(door_closed.blocksSight);
+    assert(door_closed.glyph == '+');
+
+    auto door_open = Tile::getData(Tile::ID::DoorOpen);
+    assert(!door_open.blocksMovement);
+    assert(!door_open.blocksSight);
+    assert(door_open.glyph == '/');
+
+    auto window = Tile::getData(Tile::ID::Window);
+    assert(window.blocksMovement);   // Cannot walk through window
+    assert(!window.blocksSight);     // CAN see through window!
+    assert(window.glyph == '"');
+
+    auto stairs_down = Tile::getData(Tile::ID::StairsDown);
+    assert(!stairs_down.blocksMovement);
+    assert(stairs_down.glyph == '>');
+
+    std::cout << "  ✓ Structural tile physical and vision properties verified.\n";
+
+    // 2. Validate JSON prefab catalog loading
+    Architecture::PrefabCatalog catalog;
+    bool loaded = catalog.load("data/prefabs/buildings.json");
+    assert(loaded);
+    assert(catalog.size() >= 6);
+
+    auto smithy = catalog.find_by_id("blacksmith_smithy");
+    assert(smithy != nullptr);
+    assert(smithy->width == 11);
+    assert(smithy->height == 9);
+    assert(smithy->rooms.size() == 2);
+    assert(smithy->get_room_name(2, 2) == "Forge & Anvil Court");
+    assert(smithy->get_room_name(8, 2) == "Smith's Quarters");
+
+    auto hovel = catalog.find_by_id("peasant_hovel");
+    assert(hovel != nullptr);
+    assert(hovel->width == 6);
+    assert(hovel->height == 6);
+
+    std::cout << "  ✓ JSON prefab catalog loaded " << catalog.size() << " valid templates with room names.\n";
+
+    // 3. Validate map stamping & vegetation clearing
+    GameMap::Map test_map(50, 50);
+    // Plant vegetation over the build site
+    for (int y = 10; y < 25; ++y) {
+        for (int x = 10; x < 25; ++x) {
+            test_map.set_vegetation(x, y, Vegetation::ID::DeciduousTree, 100);
+        }
+    }
+    assert(test_map.has_vegetation(15, 15));
+
+    // Stamp blacksmith at (10, 10)
+    bool stamped = test_map.stamp_building(10, 10, *smithy, 0);
+    assert(stamped);
+
+    // Verify vegetation was cleared under footprint
+    assert(!test_map.has_vegetation(10, 10));
+    assert(!test_map.has_vegetation(15, 15));
+    assert(!test_map.has_vegetation(20, 18));
+
+    // Verify walls, floors, doors, and furniture
+    assert(test_map.at(10, 10) == Tile::ID::StoneWall); // Corner wall
+    assert(test_map.at(13, 12) == Tile::ID::Anvil);     // Anvil at local (3, 2) -> (13, 12)
+    assert(test_map.at(15, 18) == Tile::ID::DoorClosed);// Door at local (5, 8) -> (15, 18)
+
+    std::cout << "  ✓ Building stamped correctly with vegetation cleared under footprint.\n";
+
+    // 4. Validate Bump-to-Open Door mechanics & Line of Sight
+    Engine::Entity player(15, 19, '@', "Hero"); // Standing just outside the closed south door
+    Engine::Camera camera(30, 20);
+    Vision::FOV fov(50, 50, 8);
+    fov.compute(test_map, player.x, player.y);
+
+    // Sight into building interior should be BLOCKED by closed door
+    assert(!test_map.raycast_los(15, 19, 15, 15));
+    assert(!fov.is_visible(15, 15));
+
+    // Player moves NORTH into the closed door at (15, 18)
+    Engine::Action bump_door{Engine::ActionType::Move, 0, -1};
+    auto result = Engine::ActionSystem::execute(bump_door, test_map, player, camera, fov);
+
+    assert(result.success);
+    assert(result.consumed_turn);
+    assert(result.message == "You open the door.");
+    assert(test_map.at(15, 18) == Tile::ID::DoorOpen); // Door swung open!
+    assert(player.x == 15 && player.y == 19);           // Player stayed in place during opening
+
+    // Door is now open: line of sight into the forge interior is UNBLOCKED!
+    assert(test_map.raycast_los(15, 19, 15, 15));
+    assert(fov.is_visible(15, 15));
+
+    // Next move: step through the open doorway
+    auto step_in = Engine::ActionSystem::execute(bump_door, test_map, player, camera, fov);
+    assert(step_in.success);
+    assert(player.x == 15 && player.y == 18); // Now standing in open doorway!
+
+    std::cout << "  ✓ Bump-to-open door mechanics, FOV recomputation, and LoS unblocking verified.\n";
+
+    // 5. Validate 90° rotation stamping
+    bool rot_stamped = test_map.stamp_building(30, 10, *smithy, 90);
+    assert(rot_stamped);
+    // Width and height swapped: 11x9 becomes 9x11
+    assert(test_map.at(30, 10) == Tile::ID::StoneWall);
+    assert(test_map.at(30 + 9 - 1, 10 + 11 - 1) == Tile::ID::StoneWall);
+
+    std::cout << "  ✓ 4-way building rotation verified successfully.\n";
+}
+
 int main() {
     std::cout << "========================================================\n";
     std::cout << " Decoupled Vegetation & Resource Architecture Test Suite\n";
@@ -401,6 +527,7 @@ int main() {
     test_continental_generation();
     test_vision_system();
     test_pregenerated_climate_gradient();
+    test_building_prefabs_and_doors();
 
     print_memory_usage();
 

@@ -34,7 +34,7 @@ std::string Renderer::render(const GameMap::Map &map,
   buffer.append("\033[K\n");
 
   // Tracking ANSI color styling to minimize escape sequences
-  enum class Style { None, Normal, Dim, Player, Flora, FloraDim };
+  enum class Style { None, Normal, Dim, Player, Flora, FloraDim, Structure, StructureDim };
   Style current_style = Style::None;
 
   auto set_style = [&](Style new_style) {
@@ -56,6 +56,12 @@ std::string Renderer::render(const GameMap::Map &map,
       break;
     case Style::FloraDim:
       buffer.append("\033[0;32m"); // Dim green for explored flora
+      break;
+    case Style::Structure:
+      buffer.append("\033[1;33m"); // Warm amber for doors & architectural features
+      break;
+    case Style::StructureDim:
+      buffer.append("\033[0;33m"); // Dim amber for explored doors
       break;
     case Style::None:
       buffer.append("\033[0m");
@@ -86,8 +92,13 @@ std::string Renderer::render(const GameMap::Map &map,
             set_style(Style::Flora);
             buffer.push_back(Vegetation::getData(veg.id).glyph);
           } else {
-            set_style(Style::Normal);
-            buffer.push_back(Tile::getData(map.at(wx, wy)).glyph);
+            Tile::ID tid = map.at(wx, wy);
+            if (tid == Tile::ID::DoorClosed || tid == Tile::ID::DoorOpen || tid == Tile::ID::StairsDown) {
+              set_style(Style::Structure);
+            } else {
+              set_style(Style::Normal);
+            }
+            buffer.push_back(Tile::getData(tid).glyph);
           }
         }
       } else if (fov.is_explored(wx, wy)) {
@@ -96,8 +107,13 @@ std::string Renderer::render(const GameMap::Map &map,
           set_style(Style::FloraDim);
           buffer.push_back(Vegetation::getData(veg.id).glyph);
         } else {
-          set_style(Style::Dim);
-          buffer.push_back(Tile::getData(map.at(wx, wy)).glyph);
+          Tile::ID tid = map.at(wx, wy);
+          if (tid == Tile::ID::DoorClosed || tid == Tile::ID::DoorOpen || tid == Tile::ID::StairsDown) {
+            set_style(Style::StructureDim);
+          } else {
+            set_style(Style::Dim);
+          }
+          buffer.push_back(Tile::getData(tid).glyph);
         }
       } else {
         set_style(Style::Normal);

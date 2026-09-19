@@ -1,0 +1,52 @@
+[
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c game_map.cpp -o game_map.o",
+    "file": "game_map.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c map_generator.cpp -o map_generator.o",
+    "file": "map_generator.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c vision.cpp -o vision.o",
+    "file": "vision.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c building_prefab.cpp -o building_prefab.o",
+    "file": "building_prefab.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c action.cpp -o action.o",
+    "file": "action.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c camera.cpp -o camera.o",
+    "file": "camera.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c renderer.cpp -o renderer.o",
+    "file": "renderer.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c terminal_ui.cpp -o terminal_ui.o",
+    "file": "terminal_ui.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c main.cpp -o main.o",
+    "file": "main.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_world_architecture.cpp -o tests/test_world_architecture.o",
+    "file": "tests/test_world_architecture.cpp"
+  }
+]

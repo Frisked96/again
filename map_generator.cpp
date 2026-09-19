@@ -1,4 +1,5 @@
 #include "map_generator.hpp"
+#include "building_prefab.hpp"
 #include <algorithm>
 #include <cmath>
 #include <vector>
@@ -245,33 +246,49 @@ SpawnPoint MapGenerator::generate(Map &map, uint32_t seed) {
   }
 
   // 5. Establish a guaranteed safe spawn point (preferring Lowland Meadow on a road or path)
-  for (int radius = 0; radius < 1000; radius += 5) {
-    for (int dy = -radius; dy <= radius; dy += 10) {
-      for (int dx = -radius; dx <= radius; dx += 10) {
+  SpawnPoint sp{width / 2, road_y};
+  bool found_spawn = false;
+
+  for (int radius = 0; radius < 1000 && !found_spawn; radius += 5) {
+    for (int dy = -radius; dy <= radius && !found_spawn; dy += 10) {
+      for (int dx = -radius; dx <= radius && !found_spawn; dx += 10) {
         int sx = (width / 2) + dx;
         int sy = road_y + dy;
         if (map.in_bounds(sx, sy) && map.is_walkable(sx, sy)) {
           World::RegionID reg = map.get_region(sx, sy);
           if (reg == World::RegionID::LowlandMeadow || reg == World::RegionID::DeciduousWeald) {
-            return {sx, sy};
+            sp = {sx, sy};
+            found_spawn = true;
           }
         }
       }
     }
   }
 
-  // Fallback to any walkable tile near center
-  for (int dy = -50; dy <= 50; ++dy) {
-    for (int dx = -50; dx <= 50; ++dx) {
-      int sx = (width / 2) + dx;
-      int sy = road_y + dy;
-      if (map.in_bounds(sx, sy) && map.is_walkable(sx, sy)) {
-        return {sx, sy};
+  if (!found_spawn) {
+    for (int dy = -50; dy <= 50 && !found_spawn; ++dy) {
+      for (int dx = -50; dx <= 50 && !found_spawn; ++dx) {
+        int sx = (width / 2) + dx;
+        int sy = road_y + dy;
+        if (map.in_bounds(sx, sy) && map.is_walkable(sx, sy)) {
+          sp = {sx, sy};
+          found_spawn = true;
+        }
       }
     }
   }
 
-  return {width / 2, road_y};
+  // Stamp an authentic wayside coaching inn adjacent to the traveler's starting road
+  const auto *inn = Architecture::default_catalog().find_by_id("coaching_inn");
+  if (inn) {
+    int inn_x = sp.x + 3;
+    int inn_y = sp.y - inn->height - 1;
+    if (map.can_stamp_building(inn_x, inn_y, inn->width, inn->height)) {
+      map.stamp_building(inn_x, inn_y, *inn, 0);
+    }
+  }
+
+  return sp;
 }
 
 } // namespace GameMap
