@@ -1,6 +1,7 @@
 #include "game_map.hpp"
 #include "building_prefab.hpp"
 #include "vision.hpp"
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 
@@ -10,7 +11,8 @@ Map::Map(int w, int h, Tile::ID default_tile, World::RegionID default_region)
     : width(w), height(h),
       tile_grid(static_cast<size_t>(w), static_cast<size_t>(h), default_tile),
       region_grid(static_cast<size_t>(w), static_cast<size_t>(h), default_region),
-      vegetation_grid(static_cast<size_t>(w), static_cast<size_t>(h), Vegetation::Cell{Vegetation::ID::None, 0}) {}
+      vegetation_grid(static_cast<size_t>(w), static_cast<size_t>(h), Vegetation::Cell{Vegetation::ID::None, 0}),
+      surface_structure_grid(static_cast<size_t>(w), static_cast<size_t>(h), Structure::Cell{Structure::ID::None, 0}) {}
 
 void Map::resize(int w, int h, Tile::ID default_tile, World::RegionID default_region) {
   width = w;
@@ -18,6 +20,8 @@ void Map::resize(int w, int h, Tile::ID default_tile, World::RegionID default_re
   tile_grid.resize(static_cast<size_t>(w), static_cast<size_t>(h), default_tile);
   region_grid.resize(static_cast<size_t>(w), static_cast<size_t>(h), default_region);
   vegetation_grid.resize(static_cast<size_t>(w), static_cast<size_t>(h), Vegetation::Cell{Vegetation::ID::None, 0});
+  surface_structure_grid.resize(static_cast<size_t>(w), static_cast<size_t>(h), Structure::Cell{Structure::ID::None, 0});
+  vertical_structures.clear();
 }
 
 void Map::clear(Tile::ID fill_tile, World::RegionID fill_region, Vegetation::ID fill_veg) {
@@ -25,6 +29,8 @@ void Map::clear(Tile::ID fill_tile, World::RegionID fill_region, Vegetation::ID 
   region_grid.fill(fill_region);
   uint8_t yield = (fill_veg == Vegetation::ID::None) ? 0 : Vegetation::getData(fill_veg).maxYield;
   vegetation_grid.fill(Vegetation::Cell{fill_veg, yield});
+  surface_structure_grid.fill(Structure::Cell{Structure::ID::None, 0});
+  vertical_structures.clear();
 }
 
 void Map::set(int x, int y, Tile::ID id) noexcept {
@@ -33,11 +39,151 @@ void Map::set(int x, int y, Tile::ID id) noexcept {
   }
 }
 
-Tile::ID Map::at(int x, int y) const noexcept {
+Tile::ID Map::at(int x, int y, int z) const noexcept {
   if (!in_bounds(x, y)) {
     return Tile::ID::Void;
   }
-  return tile_grid(x, y);
+  if (z == 0) {
+    return tile_grid(x, y);
+  } else if (z > 0) {
+    return Tile::ID::OpenAir;
+  } else {
+    return Tile::ID::SubterraneanRock;
+  }
+}
+
+void Map::set_structure(int x, int y, Structure::ID id, uint8_t durability) noexcept {
+  set_structure(x, y, 0, id, durability);
+}
+
+void Map::set_structure(int x, int y, int z, Structure::ID id, uint8_t durability) noexcept {
+  set_structure_cell(x, y, z, Structure::Cell{id, durability});
+}
+
+void Map::set_structure_cell(int x, int y, int z, Structure::Cell cell) noexcept {
+  if (!in_bounds(x, y)) return;
+  if (z == 0) {
+    surface_structure_grid(x, y) = cell;
+  } else {
+    vertical_structures.set(x, y, z, cell);
+  }
+}
+
+Structure::Cell Map::get_structure(int x, int y, int z) const noexcept {
+  if (!in_bounds(x, y)) {
+    return {Structure::ID::None, 0};
+  }
+  if (z == 0) {
+    return surface_structure_grid(x, y);
+  }
+  return vertical_structures.get(x, y, z);
+}
+
+bool Map::has_structure(int x, int y, int z) const noexcept {
+  return get_structure(x, y, z).id != Structure::ID::None;
+}
+
+bool Map::remove_structure(int x, int y, int z) noexcept {
+  if (!in_bounds(x, y)) return false;
+  auto cur = get_structure(x, y, z);
+  if (cur.id == Structure::ID::None) return false;
+
+  bool was_load_bearing = Structure::getData(cur.id).isLoadBearing;
+  set_structure_cell(x, y, z, {Structure::ID::None, 0});
+
+  if (was_load_bearing) {
+    trigger_cascade_check(x, y, z);
+  }
+  return true;
+}
+
+bool Map::damage_structure(int x, int y, int z, uint8_t damage) noexcept {
+  if (!in_bounds(x, y)) return false;
+  auto s = get_structure(x, y, z);
+  if (s.id == Structure::ID::None) return false;
+
+  if (damage >= s.durability) {
+    auto data = Structure::getData(s.id);
+    bool was_load_bearing = data.isLoadBearing;
+    Structure::ID debris = data.debrisType;
+
+    if (debris != Structure::ID::None) {
+      set_structure_cell(x, y, z, {debris, Structure::getData(debris).maxDurability});
+    } else {
+      set_structure_cell(x, y, z, {Structure::ID::None, 0});
+    }
+
+    if (was_load_bearing) {
+      trigger_cascade_check(x, y, z);
+    }
+    return true; // Destroyed
+  } else {
+    s.durability = static_cast<uint8_t>(s.durability - damage);
+    set_structure_cell(x, y, z, s);
+    return false; // Still standing
+  }
+}
+
+bool Map::has_structural_support(int x, int y, int z) const noexcept {
+  if (z <= 0) {
+    return true; // Supported by natural terrain or bedrock
+  }
+
+  // Direct vertical support from structure below
+  auto below = get_structure(x, y, z - 1);
+  if (below.id != Structure::ID::None && Structure::getData(below.id).isLoadBearing) {
+    return true;
+  }
+
+  // Check if any adjacent supporting column/wall exists within 1 tile underneath
+  for (int dy = -1; dy <= 1; ++dy) {
+    for (int dx = -1; dx <= 1; ++dx) {
+      if (dx == 0 && dy == 0) continue;
+      int nx = x + dx;
+      int ny = y + dy;
+      if (in_bounds(nx, ny)) {
+        auto adj_below = get_structure(nx, ny, z - 1);
+        if (adj_below.id != Structure::ID::None && Structure::getData(adj_below.id).isLoadBearing) {
+          return true;
+        }
+      }
+    }
+  }
+
+  return false;
+}
+
+void Map::trigger_cascade_check(int x, int y, int z) noexcept {
+  int upper_z = z + 1;
+  for (int dy = -1; dy <= 1; ++dy) {
+    for (int dx = -1; dx <= 1; ++dx) {
+      int nx = x + dx;
+      int ny = y + dy;
+      if (!in_bounds(nx, ny)) continue;
+
+      auto upper = get_structure(nx, ny, upper_z);
+      if (upper.id != Structure::ID::None) {
+        if (!has_structural_support(nx, ny, upper_z)) {
+          // Unsupported structure collapses!
+          auto data = Structure::getData(upper.id);
+          bool was_load_bearing = data.isLoadBearing;
+          Structure::ID debris = data.debrisType;
+
+          // Upper cell becomes None (revealing OpenAir)
+          set_structure_cell(nx, ny, upper_z, {Structure::ID::None, 0});
+
+          // Lower cell receives falling debris
+          Structure::ID floor_debris = (debris != Structure::ID::None) ? debris : Structure::ID::Rubble;
+          set_structure_cell(nx, ny, z, {floor_debris, Structure::getData(floor_debris).maxDurability});
+
+          // Cascade upwards if this was supporting higher stories
+          if (was_load_bearing) {
+            trigger_cascade_check(nx, ny, upper_z);
+          }
+        }
+      }
+    }
+  }
 }
 
 void Map::set_vegetation(int x, int y, Vegetation::ID id, uint8_t amount) noexcept {
@@ -144,34 +290,93 @@ bool Map::in_bounds(int x, int y) const noexcept {
   return tile_grid.in_bounds(x, y);
 }
 
-bool Map::is_walkable(int x, int y) const noexcept {
+bool Map::is_walkable(int x, int y, int z) const noexcept {
   if (!in_bounds(x, y)) {
     return false;
   }
-  if (Tile::getData(tile_grid(x, y)).blocksMovement) {
-    return false;
+
+  if (z == 0) {
+    if (Tile::getData(tile_grid(x, y)).blocksMovement) {
+      return false;
+    }
+    if (Vegetation::getData(vegetation_grid(x, y).id).blocksMovement) {
+      return false;
+    }
+    auto s = surface_structure_grid(x, y);
+    if (s.id != Structure::ID::None && Structure::getData(s.id).blocksMovement) {
+      return false;
+    }
+    return true;
+  } else if (z > 0) {
+    // Upper level requires constructed floor or stairs to walk on
+    auto s = get_structure(x, y, z);
+    if (s.id == Structure::ID::None) {
+      return false; // OpenAir is not walkable
+    }
+    return !Structure::getData(s.id).blocksMovement;
+  } else {
+    // Subterranean level: solid rock blocks unless excavated
+    auto s = get_structure(x, y, z);
+    if (s.id == Structure::ID::None) {
+      return false; // Solid subterranean rock
+    }
+    return !Structure::getData(s.id).blocksMovement;
   }
-  return !Vegetation::getData(vegetation_grid(x, y).id).blocksMovement;
 }
 
-bool Map::blocks_sight(int x, int y) const noexcept {
+bool Map::blocks_sight(int x, int y, int z) const noexcept {
   if (!in_bounds(x, y)) {
     return true;
   }
-  if (Tile::getData(tile_grid(x, y)).blocksSight) {
-    return true;
+
+  if (z == 0) {
+    if (Tile::getData(tile_grid(x, y)).blocksSight) {
+      return true;
+    }
+    if (Vegetation::getData(vegetation_grid(x, y).id).blocksSight) {
+      return true;
+    }
+    auto s = surface_structure_grid(x, y);
+    if (s.id != Structure::ID::None) {
+      return Structure::getData(s.id).blocksSight;
+    }
+    return false;
+  } else if (z > 0) {
+    auto s = get_structure(x, y, z);
+    if (s.id == Structure::ID::None) {
+      return false; // OpenAir does not block sight
+    }
+    return Structure::getData(s.id).blocksSight;
+  } else {
+    auto s = get_structure(x, y, z);
+    if (s.id == Structure::ID::None) {
+      return true; // Solid rock blocks sight
+    }
+    return Structure::getData(s.id).blocksSight;
   }
-  return Vegetation::getData(vegetation_grid(x, y).id).blocksSight;
 }
 
-float Map::get_movement_cost(int x, int y) const noexcept {
+float Map::get_movement_cost(int x, int y, int z) const noexcept {
   if (!in_bounds(x, y)) {
     return 999.0f;
   }
-  float base_cost = Tile::getData(tile_grid(x, y)).movementCost;
-  float veg_mult = Vegetation::getData(vegetation_grid(x, y).id).movementCostMult;
-  auto weather = get_weather(x, y);
-  return base_cost * veg_mult * weather.movement_cost_mult;
+
+  if (z == 0) {
+    float base_cost = Tile::getData(tile_grid(x, y)).movementCost;
+    float veg_mult = Vegetation::getData(vegetation_grid(x, y).id).movementCostMult;
+    auto s = surface_structure_grid(x, y);
+    float struct_mult = (s.id != Structure::ID::None) ? Structure::getData(s.id).movementCostMult : 1.0f;
+    auto weather = get_weather(x, y);
+    return base_cost * veg_mult * struct_mult * weather.movement_cost_mult;
+  } else {
+    auto s = get_structure(x, y, z);
+    if (s.id == Structure::ID::None) {
+      return 999.0f;
+    }
+    float struct_mult = Structure::getData(s.id).movementCostMult;
+    auto weather = get_weather(x, y);
+    return 1.0f * struct_mult * weather.movement_cost_mult;
+  }
 }
 
 int Map::get_visibility_limit(int x, int y) const noexcept {
@@ -181,8 +386,8 @@ int Map::get_visibility_limit(int x, int y) const noexcept {
   return get_weather(x, y).visibility_limit;
 }
 
-bool Map::raycast_los(int x0, int y0, int x1, int y1) const noexcept {
-  return Vision::has_line_of_sight(*this, x0, y0, x1, y1);
+bool Map::raycast_los(int x0, int y0, int x1, int y1, int z) const noexcept {
+  return Vision::has_line_of_sight(*this, x0, y0, x1, y1, -1, z);
 }
 
 bool Map::can_stamp_building(int x, int y, int w, int h) const noexcept {
@@ -191,7 +396,7 @@ bool Map::can_stamp_building(int x, int y, int w, int h) const noexcept {
   }
   for (int dy = 0; dy < h; ++dy) {
     for (int dx = 0; dx < w; ++dx) {
-      Tile::ID t = at(x + dx, y + dy);
+      Tile::ID t = at(x + dx, y + dy, 0);
       if (t == Tile::ID::DeepWater || t == Tile::ID::MountainPeak || t == Tile::ID::Cliff) {
         return false;
       }
@@ -216,84 +421,91 @@ bool Map::stamp_building(int x, int y, const Architecture::BuildingTemplate &pre
     return false;
   }
 
-  for (int tr = 0; tr < target_h; ++tr) {
-    for (int tc = 0; tc < target_w; ++tc) {
-      int sr = 0;
-      int sc = 0;
-      if (rot == 0) {
-        sr = tr;
-        sc = tc;
-      } else if (rot == 90) {
-        sr = orig_h - 1 - tc;
-        sc = tr;
-      } else if (rot == 180) {
-        sr = orig_h - 1 - tr;
-        sc = orig_w - 1 - tc;
-      } else if (rot == 270) {
-        sr = tc;
-        sc = orig_w - 1 - tr;
-      }
+  auto stamp_layer = [&](int level, Structure::ID wall_t, Structure::ID floor_t, const std::vector<std::string> &layout) {
+    if (layout.empty()) return;
+    int f_orig_h = static_cast<int>(layout.size());
 
-      char glyph = ' ';
-      if (sr >= 0 && sr < orig_h && sc >= 0 && sc < static_cast<int>(prefab.layout[sr].size())) {
-        glyph = prefab.layout[sr][sc];
-      }
-
-      int world_x = x + tc;
-      int world_y = y + tr;
-
-      // Always clear vegetation under building footprint
-      set_vegetation(world_x, world_y, Vegetation::ID::None, 0);
-
-      // Translate prefab glyph to Tile::ID
-      switch (glyph) {
-      case '#':
-        set(world_x, world_y, prefab.wall_type);
-        break;
-      case '.':
-        set(world_x, world_y, prefab.floor_type);
-        break;
-      case '+':
-        set(world_x, world_y, Tile::ID::DoorClosed);
-        break;
-      case '/':
-        set(world_x, world_y, Tile::ID::DoorOpen);
-        break;
-      case '"':
-        set(world_x, world_y, Tile::ID::Window);
-        break;
-      case '>':
-        set(world_x, world_y, Tile::ID::StairsDown);
-        break;
-      case '&':
-        set(world_x, world_y, Tile::ID::Anvil);
-        break;
-      case '=':
-        set(world_x, world_y, Tile::ID::Counter);
-        break;
-      default:
-        if (glyph != ' ') {
-          set(world_x, world_y, prefab.floor_type);
+    for (int tr = 0; tr < target_h; ++tr) {
+      for (int tc = 0; tc < target_w; ++tc) {
+        int sr = 0;
+        int sc = 0;
+        if (rot == 0) {
+          sr = tr;
+          sc = tc;
+        } else if (rot == 90) {
+          sr = orig_h - 1 - tc;
+          sc = tr;
+        } else if (rot == 180) {
+          sr = orig_h - 1 - tr;
+          sc = orig_w - 1 - tc;
+        } else if (rot == 270) {
+          sr = tc;
+          sc = orig_w - 1 - tr;
         }
-        break;
+
+        char glyph = ' ';
+        if (sr >= 0 && sr < f_orig_h && sc >= 0 && sc < static_cast<int>(layout[sr].size())) {
+          glyph = layout[sr][sc];
+        }
+
+        int world_x = x + tc;
+        int world_y = y + tr;
+
+        // On surface level, clear vegetation under building footprint
+        if (level == 0) {
+          set_vegetation(world_x, world_y, Vegetation::ID::None, 0);
+        }
+
+        Structure::ID sid = Structure::ID::None;
+        switch (glyph) {
+        case '#': sid = wall_t; break;
+        case '.': sid = floor_t; break;
+        case '+': sid = Structure::ID::DoorClosed; break;
+        case '/': sid = Structure::ID::DoorOpen; break;
+        case '"': sid = Structure::ID::Window; break;
+        case '>': sid = Structure::ID::StairsDown; break;
+        case '<': sid = Structure::ID::StairsUp; break;
+        case 'H': sid = Structure::ID::Ladder; break;
+        case '&': sid = Structure::ID::Anvil; break;
+        case '=': sid = Structure::ID::Counter; break;
+        case ' ': sid = Structure::ID::None; break;
+        default:  sid = floor_t; break;
+        }
+
+        if (sid != Structure::ID::None) {
+          uint8_t max_hp = Structure::getData(sid).maxDurability;
+          set_structure(world_x, world_y, level, sid, max_hp);
+        }
       }
     }
+  };
+
+  if (!prefab.floors.empty()) {
+    for (const auto &floor : prefab.floors) {
+      stamp_layer(floor.level, floor.wall_type, floor.floor_type, floor.layout);
+    }
+  } else if (!prefab.layout.empty()) {
+    stamp_layer(0, prefab.wall_type, prefab.floor_type, prefab.layout);
   }
 
   return true;
 }
 
-bool Map::open_door(int x, int y) noexcept {
-  if (in_bounds(x, y) && at(x, y) == Tile::ID::DoorClosed) {
-    set(x, y, Tile::ID::DoorOpen);
+bool Map::open_door(int x, int y, int z) noexcept {
+  if (!in_bounds(x, y)) return false;
+  auto s = get_structure(x, y, z);
+  if (s.id == Structure::ID::DoorClosed) {
+    set_structure(x, y, z, Structure::ID::DoorOpen, s.durability);
     return true;
   }
   return false;
 }
 
-bool Map::close_door(int x, int y) noexcept {
-  if (in_bounds(x, y) && at(x, y) == Tile::ID::DoorOpen) {
-    set(x, y, Tile::ID::DoorClosed);
+bool Map::close_door(int x, int y, int z) noexcept {
+  if (!in_bounds(x, y)) return false;
+  auto s = get_structure(x, y, z);
+  if (s.id == Structure::ID::DoorOpen) {
+    set_structure(x, y, z, Structure::ID::DoorClosed, s.durability);
     return true;
   }
   return false;

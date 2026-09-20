@@ -9,7 +9,7 @@ namespace Vision {
 
 // Point-to-point Line of Sight (Bresenham Raycasting)
 // If max_range < 0, checks against weather visibility limit at the origin cell
-bool has_line_of_sight(const GameMap::Map &map, int x0, int y0, int x1, int y1, int max_range = -1) noexcept;
+bool has_line_of_sight(const GameMap::Map &map, int x0, int y0, int x1, int y1, int max_range = -1, int z = 0) noexcept;
 
 // 2D Field of View and Exploration Memory (Octant Shadowcasting)
 class FOV {
@@ -21,7 +21,7 @@ private:
   std::vector<bool> explored_grid;
   std::vector<int> visible_cells;
 
-  void scan(const GameMap::Map &map, int cx, int cy, int row,
+  void scan(const GameMap::Map &map, int cx, int cy, int cz, int row,
             float start_slope, float end_slope, int current_radius,
             int xx, int xy, int yx, int yy);
 
@@ -30,7 +30,7 @@ public:
   FOV(int w, int h, int r = 8);
 
   void resize(int w, int h);
-  void compute(const GameMap::Map &map, int center_x, int center_y, int r = -1);
+  void compute(const GameMap::Map &map, int center_x, int center_y, int center_z = 0, int r = -1);
 
   [[nodiscard]] bool is_visible(int x, int y) const noexcept;
   [[nodiscard]] bool is_explored(int x, int y) const noexcept;

@@ -2,6 +2,7 @@
 #include "../map_generator.hpp"
 #include "../weather.hpp"
 #include "../region.hpp"
+#include "../structure.hpp"
 #include "../tile.hpp"
 #include "../vegetation.hpp"
 #include "../vision.hpp"
@@ -60,6 +61,15 @@ void test_tile_properties() {
     auto summit = Tile::getData(Tile::ID::MountainPeak);
     CHECK(summit.blocksMovement == true);
     CHECK(summit.blocksSight == true);
+
+    // Test vertical substrates
+    auto open_air = Tile::getData(Tile::ID::OpenAir);
+    CHECK(open_air.blocksMovement == true);
+    CHECK(open_air.blocksSight == false);
+
+    auto sub_rock = Tile::getData(Tile::ID::SubterraneanRock);
+    CHECK(sub_rock.blocksMovement == true);
+    CHECK(sub_rock.blocksSight == true);
 }
 
 void test_vegetation_properties() {
@@ -324,31 +334,31 @@ void test_pregenerated_climate_gradient() {
 
 void test_building_prefabs_and_doors() {
     // 1. Validate structural tiles
-    auto wood_floor = Tile::getData(Tile::ID::WoodFloor);
+    auto wood_floor = Structure::getData(Structure::ID::WoodFloor);
     CHECK(!wood_floor.blocksMovement);
     CHECK(!wood_floor.blocksSight);
     CHECK(wood_floor.glyph == '.');
 
-    auto stone_floor = Tile::getData(Tile::ID::StoneFloor);
+    auto stone_floor = Structure::getData(Structure::ID::StoneFloor);
     CHECK(!stone_floor.blocksMovement);
     CHECK(!stone_floor.blocksSight);
 
-    auto door_closed = Tile::getData(Tile::ID::DoorClosed);
+    auto door_closed = Structure::getData(Structure::ID::DoorClosed);
     CHECK(door_closed.blocksMovement);
     CHECK(door_closed.blocksSight);
     CHECK(door_closed.glyph == '+');
 
-    auto door_open = Tile::getData(Tile::ID::DoorOpen);
+    auto door_open = Structure::getData(Structure::ID::DoorOpen);
     CHECK(!door_open.blocksMovement);
     CHECK(!door_open.blocksSight);
     CHECK(door_open.glyph == '/');
 
-    auto window = Tile::getData(Tile::ID::Window);
+    auto window = Structure::getData(Structure::ID::Window);
     CHECK(window.blocksMovement);
     CHECK(!window.blocksSight);
     CHECK(window.glyph == '"');
 
-    auto stairs_down = Tile::getData(Tile::ID::StairsDown);
+    auto stairs_down = Structure::getData(Structure::ID::StairsDown);
     CHECK(!stairs_down.blocksMovement);
     CHECK(stairs_down.glyph == '>');
 
@@ -389,16 +399,17 @@ void test_building_prefabs_and_doors() {
     CHECK(!test_map.has_vegetation(15, 15));
     CHECK(!test_map.has_vegetation(20, 18));
 
-    // Verify walls, floors, doors, and furniture
-    CHECK(test_map.at(10, 10) == Tile::ID::StoneWall);
-    CHECK(test_map.at(13, 12) == Tile::ID::Anvil);
-    CHECK(test_map.at(15, 18) == Tile::ID::DoorClosed);
+    // Verify structures exist while base ground terrain is preserved!
+    CHECK(test_map.at(10, 10) == Tile::ID::Grassland);
+    CHECK(test_map.get_structure(10, 10).id == Structure::ID::StoneWall);
+    CHECK(test_map.get_structure(13, 12).id == Structure::ID::Anvil);
+    CHECK(test_map.get_structure(15, 18).id == Structure::ID::DoorClosed);
 
     // 4. Validate Bump-to-Open Door mechanics & Line of Sight
-    Engine::Entity player(15, 19, '@', "Hero");
+    Engine::Entity player(15, 19, 0, '@', "Hero");
     Engine::Camera camera(30, 20);
     Vision::FOV fov(50, 50, 8);
-    fov.compute(test_map, player.x, player.y);
+    fov.compute(test_map, player.x, player.y, player.z);
 
     CHECK(!test_map.raycast_los(15, 19, 15, 15));
     CHECK(!fov.is_visible(15, 15));
@@ -409,7 +420,8 @@ void test_building_prefabs_and_doors() {
     CHECK(result.success);
     CHECK(result.consumed_turn);
     CHECK(result.message == "You open the door.");
-    CHECK(test_map.at(15, 18) == Tile::ID::DoorOpen);
+    CHECK(test_map.get_structure(15, 18).id == Structure::ID::DoorOpen);
+    CHECK(test_map.at(15, 18) == Tile::ID::Grassland); // Ground preserved!
     CHECK(player.x == 15 && player.y == 19);
 
     CHECK(test_map.raycast_los(15, 19, 15, 15));
@@ -422,8 +434,136 @@ void test_building_prefabs_and_doors() {
     // 5. Validate 90° rotation stamping
     bool rot_stamped = test_map.stamp_building(30, 10, *smithy, 90);
     CHECK(rot_stamped);
-    CHECK(test_map.at(30, 10) == Tile::ID::StoneWall);
-    CHECK(test_map.at(30 + 9 - 1, 10 + 11 - 1) == Tile::ID::StoneWall);
+    CHECK(test_map.at(30, 10) == Tile::ID::Grassland);
+    CHECK(test_map.get_structure(30, 10).id == Structure::ID::StoneWall);
+    CHECK(test_map.get_structure(30 + 9 - 1, 10 + 11 - 1).id == Structure::ID::StoneWall);
+}
+
+void test_ground_preservation_and_destruction() {
+    GameMap::Map test_map(20, 20);
+    test_map.set(5, 5, Tile::ID::ForestSoil);
+
+    // Place a wooden wall over ForestSoil
+    test_map.set_structure(5, 5, Structure::ID::WoodWall, 100);
+    CHECK(test_map.at(5, 5) == Tile::ID::ForestSoil); // Ground preserved!
+    CHECK(test_map.get_structure(5, 5).id == Structure::ID::WoodWall);
+    CHECK(!test_map.is_walkable(5, 5));
+    CHECK(test_map.blocks_sight(5, 5));
+
+    // Damage wall by 40 HP
+    bool destroyed = test_map.damage_structure(5, 5, 0, 40);
+    CHECK(!destroyed);
+    CHECK(test_map.get_structure(5, 5).durability == 60);
+    CHECK(test_map.at(5, 5) == Tile::ID::ForestSoil);
+
+    // Destroy wall by dealing 60 HP
+    destroyed = test_map.damage_structure(5, 5, 0, 60);
+    CHECK(destroyed);
+    CHECK(test_map.get_structure(5, 5).id == Structure::ID::WoodScraps); // Leaves debris
+    CHECK(test_map.at(5, 5) == Tile::ID::ForestSoil); // Ground still preserved!
+    CHECK(test_map.is_walkable(5, 5)); // Rubble/scraps are traversable
+    CHECK(!test_map.blocks_sight(5, 5));
+
+    // Clear debris
+    test_map.remove_structure(5, 5);
+    CHECK(test_map.get_structure(5, 5).id == Structure::ID::None);
+    CHECK(test_map.at(5, 5) == Tile::ID::ForestSoil);
+}
+
+void test_multi_level_and_stairs() {
+    GameMap::Map test_map(25, 25);
+
+    // Create a 2-level building template
+    Architecture::BuildingTemplate tower;
+    tower.id = "watchtower";
+    tower.name = "Watchtower";
+    tower.width = 5;
+    tower.height = 5;
+
+    Architecture::BuildingFloor fl0;
+    fl0.level = 0;
+    fl0.name = "Ground Floor";
+    fl0.wall_type = Structure::ID::StoneWall;
+    fl0.floor_type = Structure::ID::StoneFloor;
+    fl0.layout = {
+        "#####",
+        "#...#",
+        "#.<.#", // Stairs up to level 1 at local (2, 2) -> world (12, 12)
+        "#...#",
+        "##+##"
+    };
+
+    Architecture::BuildingFloor fl1;
+    fl1.level = 1;
+    fl1.name = "Upper Battlement";
+    fl1.wall_type = Structure::ID::StoneWall;
+    fl1.floor_type = Structure::ID::StoneFloor;
+    fl1.layout = {
+        "#####",
+        "#...#",
+        "#.>.#", // Stairs down to level 0 at local (2, 2) -> world (12, 12)
+        "#...#",
+        "#####"
+    };
+
+    tower.floors.push_back(fl0);
+    tower.floors.push_back(fl1);
+
+    bool stamped = test_map.stamp_building(10, 10, tower, 0);
+    CHECK(stamped);
+
+    // Verify level 0
+    CHECK(test_map.get_structure(10, 10, 0).id == Structure::ID::StoneWall);
+    CHECK(test_map.get_structure(12, 12, 0).id == Structure::ID::StairsUp);
+
+    // Verify level 1
+    CHECK(test_map.get_structure(10, 10, 1).id == Structure::ID::StoneWall);
+    CHECK(test_map.get_structure(12, 12, 1).id == Structure::ID::StairsDown);
+
+    // Verify outside upper level is OpenAir
+    CHECK(test_map.at(5, 5, 1) == Tile::ID::OpenAir);
+    CHECK(!test_map.is_walkable(5, 5, 1));
+    CHECK(!test_map.blocks_sight(5, 5, 1));
+
+    // Player ascends using ActionType::Interact ('e')
+    Engine::Entity player(12, 12, 0, '@', "Hero");
+    Engine::Camera camera(20, 20);
+    Vision::FOV fov(25, 25, 6);
+    fov.compute(test_map, player.x, player.y, player.z);
+
+    Engine::Action interact{Engine::ActionType::Interact, 0, 0};
+    auto res_ascend = Engine::ActionSystem::execute(interact, test_map, player, camera, fov);
+    CHECK(res_ascend.success);
+    CHECK(player.z == 1);
+    CHECK(res_ascend.message.find("ascend") != std::string::npos);
+
+    // Player descends back using ActionType::Interact ('e')
+    auto res_descend = Engine::ActionSystem::execute(interact, test_map, player, camera, fov);
+    CHECK(res_descend.success);
+    CHECK(player.z == 0);
+    CHECK(res_descend.message.find("descend") != std::string::npos);
+}
+
+void test_support_cascade_destruction() {
+    GameMap::Map test_map(30, 30);
+
+    // Build an isolated column wall on Z=0
+    test_map.set_structure(15, 15, 0, Structure::ID::WoodWall, 100);
+
+    // Build an upper floor tile resting directly on this column on Z=1
+    test_map.set_structure(15, 15, 1, Structure::ID::WoodFloor, 100);
+
+    CHECK(test_map.has_structural_support(15, 15, 1) == true);
+
+    // Demolish the ground wall completely
+    test_map.remove_structure(15, 15, 0);
+
+    // Cascade destruction triggers:
+    // Upper floor at (15, 15, 1) lost support and collapsed!
+    CHECK(test_map.get_structure(15, 15, 1).id == Structure::ID::None);
+
+    // Falling debris landed on (15, 15, 0)
+    CHECK(test_map.get_structure(15, 15, 0).id == Structure::ID::WoodScraps);
 }
 
 int main() {
@@ -436,6 +576,9 @@ int main() {
     test_vision_system();
     test_pregenerated_climate_gradient();
     test_building_prefabs_and_doors();
+    test_ground_preservation_and_destruction();
+    test_multi_level_and_stairs();
+    test_support_cascade_destruction();
 
     std::cout << "All architecture tests passed.\n";
     return 0;

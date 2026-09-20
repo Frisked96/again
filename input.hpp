@@ -6,6 +6,7 @@ namespace Engine {
 enum class ActionType {
   None,
   Move,
+  Interact,
   Harvest,
   Wait,
   Quit
@@ -30,7 +31,7 @@ public:
     case KeyCode::Right:
       return {ActionType::Move, 1, 0};
     case KeyCode::Space:
-      return {ActionType::Harvest, 0, 0};
+      return {ActionType::Interact, 0, 0};
     case KeyCode::Timeout:
       return {ActionType::Wait, 0, 0};
     case KeyCode::Escape:
@@ -46,7 +47,9 @@ public:
       case 'd': case 'D': case 'l': case 'L':
         return {ActionType::Move, 1, 0};
       case 'e': case 'E':
-        return {ActionType::Harvest, 0, 0};
+        return {ActionType::Interact, 0, 0};
+      case '>': case '<':
+        return {ActionType::Interact, 0, 0};
       case 'q': case 'Q':
         return {ActionType::Quit, 0, 0};
       case '.':

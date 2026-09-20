@@ -1,4 +1,5 @@
 #include "renderer.hpp"
+#include "structure.hpp"
 #include "tile.hpp"
 #include <algorithm>
 #include <format>
@@ -16,6 +17,7 @@ std::string Renderer::render(const GameMap::Map &map,
   int view_h = camera.get_viewport_height();
   int cam_x = camera.get_x();
   int cam_y = camera.get_y();
+  int pz = player.z;
 
   // Reserve estimated space: header lines + map characters + footer lines
   buffer.reserve((view_w + 32) * view_h + 512);
@@ -34,7 +36,7 @@ std::string Renderer::render(const GameMap::Map &map,
   buffer.append("\033[K\n");
 
   // Tracking ANSI color styling to minimize escape sequences
-  enum class Style { None, Normal, Dim, Player, Flora, FloraDim, Structure, StructureDim };
+  enum class Style { None, Normal, Dim, Player, Flora, FloraDim, Structure, StructureDim, OpenAir };
   Style current_style = Style::None;
 
   auto set_style = [&](Style new_style) {
@@ -63,6 +65,9 @@ std::string Renderer::render(const GameMap::Map &map,
     case Style::StructureDim:
       buffer.append("\033[0;33m"); // Dim amber for explored doors
       break;
+    case Style::OpenAir:
+      buffer.append("\033[0;36m"); // Cyan/faint for high open air
+      break;
     case Style::None:
       buffer.append("\033[0m");
       break;
@@ -87,33 +92,59 @@ std::string Renderer::render(const GameMap::Map &map,
           set_style(Style::Player);
           buffer.push_back(player.glyph);
         } else {
-          auto veg = map.get_vegetation(wx, wy);
-          if (veg.id != Vegetation::ID::None) {
-            set_style(Style::Flora);
-            buffer.push_back(Vegetation::getData(veg.id).glyph);
-          } else {
-            Tile::ID tid = map.at(wx, wy);
-            if (tid == Tile::ID::DoorClosed || tid == Tile::ID::DoorOpen || tid == Tile::ID::StairsDown) {
+          auto struct_cell = map.get_structure(wx, wy, pz);
+          if (struct_cell.id != Structure::ID::None) {
+            auto sdata = Structure::getData(struct_cell.id);
+            if (Structure::is_portal(struct_cell.id) ||
+                struct_cell.id == Structure::ID::StairsDown ||
+                struct_cell.id == Structure::ID::StairsUp ||
+                struct_cell.id == Structure::ID::Ladder) {
               set_style(Style::Structure);
             } else {
               set_style(Style::Normal);
             }
-            buffer.push_back(Tile::getData(tid).glyph);
+            buffer.push_back(sdata.glyph);
+          } else if (pz == 0) {
+            auto veg = map.get_vegetation(wx, wy);
+            if (veg.id != Vegetation::ID::None) {
+              set_style(Style::Flora);
+              buffer.push_back(Vegetation::getData(veg.id).glyph);
+            } else {
+              set_style(Style::Normal);
+              buffer.push_back(Tile::getData(map.at(wx, wy, 0)).glyph);
+            }
+          } else if (pz > 0) {
+            set_style(Style::OpenAir);
+            buffer.push_back(' '); // Open air
+          } else {
+            set_style(Style::Dim);
+            buffer.push_back('#'); // Bedrock
           }
         }
       } else if (fov.is_explored(wx, wy)) {
-        auto veg = map.get_vegetation(wx, wy);
-        if (veg.id != Vegetation::ID::None) {
-          set_style(Style::FloraDim);
-          buffer.push_back(Vegetation::getData(veg.id).glyph);
-        } else {
-          Tile::ID tid = map.at(wx, wy);
-          if (tid == Tile::ID::DoorClosed || tid == Tile::ID::DoorOpen || tid == Tile::ID::StairsDown) {
+        auto struct_cell = map.get_structure(wx, wy, pz);
+        if (struct_cell.id != Structure::ID::None) {
+          auto sdata = Structure::getData(struct_cell.id);
+          if (Structure::is_portal(struct_cell.id) ||
+              struct_cell.id == Structure::ID::StairsDown ||
+              struct_cell.id == Structure::ID::StairsUp) {
             set_style(Style::StructureDim);
           } else {
             set_style(Style::Dim);
           }
-          buffer.push_back(Tile::getData(tid).glyph);
+          buffer.push_back(sdata.glyph);
+        } else if (pz == 0) {
+          auto veg = map.get_vegetation(wx, wy);
+          if (veg.id != Vegetation::ID::None) {
+            set_style(Style::FloraDim);
+            buffer.push_back(Vegetation::getData(veg.id).glyph);
+          } else {
+            set_style(Style::Dim);
+            buffer.push_back(Tile::getData(map.at(wx, wy, 0)).glyph);
+          }
+        } else {
+          set_style(Style::Dim);
+          buffer.push_back(' ');
         }
       } else {
         set_style(Style::Normal);
@@ -126,23 +157,31 @@ std::string Renderer::render(const GameMap::Map &map,
   set_style(Style::Normal);
 
   // HUD & Status
-  auto current_tile = Tile::getData(map.at(player.x, player.y));
-  auto current_veg = map.get_vegetation(player.x, player.y);
+  auto current_struct = map.get_structure(player.x, player.y, pz);
+  auto current_tile = Tile::getData(map.at(player.x, player.y, pz));
+  auto current_veg = (pz == 0) ? map.get_vegetation(player.x, player.y) : Vegetation::Cell{Vegetation::ID::None, 0};
   auto current_region = World::getRegionData(map.get_region(player.x, player.y));
   auto current_weather = map.get_weather(player.x, player.y);
+
+  std::string level_label = (pz == 0) ? "Ground" : (pz > 0 ? std::format("+{} Upper", pz) : std::format("{} Cellar", pz));
 
   buffer.append(std::string(view_w, '-'));
   buffer.append("\033[K\n");
 
-  if (current_veg.id != Vegetation::ID::None) {
+  if (current_struct.id != Structure::ID::None) {
+    auto sdata = Structure::getData(current_struct.id);
+    buffer.append(std::format("Pos: ({}, {}, Z: {}) | Structure: {} [{}% HP] over {}",
+                              player.x, player.y, level_label,
+                              sdata.name, current_struct.durability, current_tile.name));
+  } else if (current_veg.id != Vegetation::ID::None) {
     auto vdata = Vegetation::getData(current_veg.id);
-    buffer.append(std::format("Pos: ({}, {}) | Flora: {} [{}: {}%] over {}",
-                              player.x, player.y, vdata.name,
+    buffer.append(std::format("Pos: ({}, {}, Z: {}) | Flora: {} [{}: {}%] over {}",
+                              player.x, player.y, level_label, vdata.name,
                               Vegetation::resource_name(vdata.resourceType),
                               current_veg.resource_amount, current_tile.name));
   } else {
-    buffer.append(std::format("Pos: ({}, {}) | Ground: {}",
-                              player.x, player.y, current_tile.name));
+    buffer.append(std::format("Pos: ({}, {}, Z: {}) | Ground: {}",
+                              player.x, player.y, level_label, current_tile.name));
   }
   buffer.append("\033[K\n");
 
@@ -155,7 +194,7 @@ std::string Renderer::render(const GameMap::Map &map,
   if (!status_message.empty()) {
     buffer.append(std::format(">> {}", status_message));
   } else {
-    buffer.append("Controls: [WASD / Arrows] Move | [E / Space] Harvest | [Q] Quit");
+    buffer.append("Controls: [WASD / Arrows] Move | [E / Space] Interact / Stairs | [Q] Quit");
   }
   buffer.append("\033[K\n");
 

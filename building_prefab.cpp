@@ -209,14 +209,21 @@ constexpr std::string_view EMBEDDED_DEFAULT_BUILDINGS_JSON = R"({
   ]
 })";
 
-Tile::ID parse_tile_type(std::string_view name) noexcept {
-  if (name == "StoneWall") return Tile::ID::StoneWall;
-  if (name == "WoodWall") return Tile::ID::WoodWall;
-  if (name == "StoneFloor") return Tile::ID::StoneFloor;
-  if (name == "WoodFloor") return Tile::ID::WoodFloor;
-  if (name == "Cobblestone") return Tile::ID::Cobblestone;
-  if (name == "DirtRoad") return Tile::ID::DirtRoad;
-  return Tile::ID::WoodFloor;
+Structure::ID parse_structure_type(std::string_view name) noexcept {
+  if (name == "StoneWall") return Structure::ID::StoneWall;
+  if (name == "WoodWall") return Structure::ID::WoodWall;
+  if (name == "Palisade") return Structure::ID::Palisade;
+  if (name == "StoneFloor") return Structure::ID::StoneFloor;
+  if (name == "WoodFloor") return Structure::ID::WoodFloor;
+  if (name == "DoorClosed") return Structure::ID::DoorClosed;
+  if (name == "DoorOpen") return Structure::ID::DoorOpen;
+  if (name == "Window") return Structure::ID::Window;
+  if (name == "StairsDown") return Structure::ID::StairsDown;
+  if (name == "StairsUp") return Structure::ID::StairsUp;
+  if (name == "Ladder") return Structure::ID::Ladder;
+  if (name == "Anvil") return Structure::ID::Anvil;
+  if (name == "Counter") return Structure::ID::Counter;
+  return Structure::ID::WoodFloor;
 }
 
 // Minimal robust JSON token parser for template files
@@ -385,9 +392,9 @@ bool PrefabCatalog::load_from_string(std::string_view json_str) {
     tmpl_reader.set_pos(0);
     if (tmpl_reader.find_key("height")) tmpl.height = tmpl_reader.read_int();
     tmpl_reader.set_pos(0);
-    if (tmpl_reader.find_key("wall_type")) tmpl.wall_type = parse_tile_type(tmpl_reader.read_string());
+    if (tmpl_reader.find_key("wall_type")) tmpl.wall_type = parse_structure_type(tmpl_reader.read_string());
     tmpl_reader.set_pos(0);
-    if (tmpl_reader.find_key("floor_type")) tmpl.floor_type = parse_tile_type(tmpl_reader.read_string());
+    if (tmpl_reader.find_key("floor_type")) tmpl.floor_type = parse_structure_type(tmpl_reader.read_string());
     tmpl_reader.set_pos(0);
     if (tmpl_reader.find_key("layout")) tmpl.layout = tmpl_reader.read_string_array();
 
@@ -419,6 +426,60 @@ bool PrefabCatalog::load_from_string(std::string_view json_str) {
 
         room_obj_pos = tmpl_chunk.find('{', room_obj_end + 1);
       }
+    }
+
+    // Parse floors array if present
+    tmpl_reader.set_pos(0);
+    if (tmpl_reader.find_key("floors")) {
+      size_t floors_array_pos = tmpl_reader.get_pos();
+      size_t floor_obj_pos = tmpl_chunk.find('{', floors_array_pos);
+      while (floor_obj_pos != std::string_view::npos && floor_obj_pos < tmpl_chunk.size()) {
+        size_t floor_obj_end = tmpl_chunk.find('}', floor_obj_pos);
+        int f_depth = 1;
+        size_t f_search = floor_obj_pos + 1;
+        while (f_search < tmpl_chunk.size() && f_depth > 0) {
+          if (tmpl_chunk[f_search] == '{') ++f_depth;
+          else if (tmpl_chunk[f_search] == '}') --f_depth;
+          if (f_depth == 0) {
+            floor_obj_end = f_search;
+            break;
+          }
+          ++f_search;
+        }
+
+        std::string_view floor_chunk = tmpl_chunk.substr(floor_obj_pos, floor_obj_end - floor_obj_pos + 1);
+        SimpleJsonReader floor_reader(floor_chunk);
+        BuildingFloor bf;
+        if (floor_reader.find_key("level")) bf.level = floor_reader.read_int();
+        floor_reader.set_pos(0);
+        if (floor_reader.find_key("name")) bf.name = floor_reader.read_string();
+        floor_reader.set_pos(0);
+        if (floor_reader.find_key("wall_type")) bf.wall_type = parse_structure_type(floor_reader.read_string());
+        else bf.wall_type = tmpl.wall_type;
+        floor_reader.set_pos(0);
+        if (floor_reader.find_key("floor_type")) bf.floor_type = parse_structure_type(floor_reader.read_string());
+        else bf.floor_type = tmpl.floor_type;
+        floor_reader.set_pos(0);
+        if (floor_reader.find_key("layout")) bf.layout = floor_reader.read_string_array();
+
+        if (!bf.layout.empty()) {
+          tmpl.floors.push_back(std::move(bf));
+        }
+
+        floor_obj_pos = tmpl_chunk.find('{', floor_obj_end + 1);
+      }
+    }
+
+    // Ensure default floor 0 is populated from top-level layout
+    if (tmpl.floors.empty() && !tmpl.layout.empty()) {
+      tmpl.floors.push_back(BuildingFloor{
+        0,
+        "Ground Floor",
+        tmpl.wall_type,
+        tmpl.floor_type,
+        tmpl.layout,
+        tmpl.rooms
+      });
     }
 
     if (tmpl.is_valid()) {

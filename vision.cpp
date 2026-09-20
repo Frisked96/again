@@ -7,7 +7,7 @@
 
 namespace Vision {
 
-bool has_line_of_sight(const GameMap::Map &map, int x0, int y0, int x1, int y1, int max_range) noexcept {
+bool has_line_of_sight(const GameMap::Map &map, int x0, int y0, int x1, int y1, int max_range, int z) noexcept {
   if (!map.in_bounds(x0, y0) || !map.in_bounds(x1, y1)) {
     return false;
   }
@@ -35,7 +35,7 @@ bool has_line_of_sight(const GameMap::Map &map, int x0, int y0, int x1, int y1, 
       return true; // Target reached without obstruction
     }
 
-    if ((curr_x != x0 || curr_y != y0) && map.blocks_sight(curr_x, curr_y)) {
+    if ((curr_x != x0 || curr_y != y0) && map.blocks_sight(curr_x, curr_y, z)) {
       return false; // Obstructed by wall, forest, or summit
     }
 
@@ -104,7 +104,7 @@ void FOV::reset() {
   visible_cells.clear();
 }
 
-void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
+void FOV::scan(const GameMap::Map &map, int cx, int cy, int cz, int row,
                float start_slope, float end_slope, int current_radius,
                int xx, int xy, int yx, int yy) {
   if (start_slope < end_slope) {
@@ -114,12 +114,10 @@ void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
   float next_start_slope = start_slope;
 
   for (int j = row; j <= current_radius; ++j) {
-    int dx = -j - 1;
     int dy = -j;
     bool blocked = false;
 
-    while (dx <= 0) {
-      dx++;
+    for (int dx = -j; dx <= 0; ++dx) {
       int X = cx + dx * xx + dy * xy;
       int Y = cy + dx * yx + dy * yy;
 
@@ -145,7 +143,7 @@ void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
         }
       }
 
-      bool is_blocking = !map.in_bounds(X, Y) || map.blocks_sight(X, Y);
+      bool is_blocking = !map.in_bounds(X, Y) || map.blocks_sight(X, Y, cz);
 
       if (blocked) {
         if (is_blocking) {
@@ -158,7 +156,7 @@ void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
       } else {
         if (is_blocking && j < current_radius) {
           blocked = true;
-          scan(map, cx, cy, j + 1, start_slope, l_slope, current_radius,
+          scan(map, cx, cy, cz, j + 1, start_slope, l_slope, current_radius,
                xx, xy, yx, yy);
           next_start_slope = r_slope;
         }
@@ -171,7 +169,7 @@ void FOV::scan(const GameMap::Map &map, int cx, int cy, int row,
   }
 }
 
-void FOV::compute(const GameMap::Map &map, int center_x, int center_y, int r) {
+void FOV::compute(const GameMap::Map &map, int center_x, int center_y, int center_z, int r) {
   if (r > 0) {
     radius = r;
   }
@@ -199,7 +197,7 @@ void FOV::compute(const GameMap::Map &map, int center_x, int center_y, int r) {
   };
 
   for (int i = 0; i < 8; ++i) {
-    scan(map, center_x, center_y, 1, 1.0f, 0.0f, radius,
+    scan(map, center_x, center_y, center_z, 1, 1.0f, 0.0f, radius,
          multipliers[0][i], multipliers[1][i],
          multipliers[2][i], multipliers[3][i]);
   }
