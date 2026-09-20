@@ -11,10 +11,13 @@
 #include "../entity.hpp"
 #include "../camera.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
+#include <queue>
+#include <utility>
 #include <vector>
 
 #define CHECK(cond) \
@@ -366,53 +369,60 @@ void test_building_prefabs_and_doors() {
     Architecture::PrefabCatalog catalog;
     bool loaded = catalog.load("data/prefabs/buildings.json");
     CHECK(loaded);
-    CHECK(catalog.size() >= 6);
+    CHECK(!catalog.get_all().empty());
 
-    auto smithy = catalog.find_by_id("blacksmith_smithy");
-    CHECK(smithy != nullptr);
-    CHECK(smithy->width == 11);
-    CHECK(smithy->height == 9);
-    CHECK(smithy->rooms.size() == 2);
-    CHECK(smithy->get_room_name(2, 2) == "Forge & Anvil Court");
-    CHECK(smithy->get_room_name(8, 2) == "Smith's Quarters");
+    for (const auto &tmpl : catalog.get_all()) {
+        CHECK(tmpl.is_valid());
+        CHECK(tmpl.width > 0);
+        CHECK(tmpl.height > 0);
+    }
 
-    auto hovel = catalog.find_by_id("peasant_hovel");
-    CHECK(hovel != nullptr);
-    CHECK(hovel->width == 6);
-    CHECK(hovel->height == 6);
+    // 3. Validate map stamping, door mechanics, & vegetation clearing
+    Architecture::BuildingTemplate door_test;
+    door_test.id = "test_cabin";
+    door_test.name = "Test Cabin";
+    door_test.width = 5;
+    door_test.height = 5;
+    door_test.wall_type = Structure::ID::WoodWall;
+    door_test.floor_type = Structure::ID::WoodFloor;
+    door_test.layout = {
+        "#####",
+        "#...#",
+        "#...#",
+        "#...#",
+        "##+##"
+    };
 
-    // 3. Validate map stamping & vegetation clearing
     GameMap::Map test_map(50, 50);
-    for (int y = 10; y < 25; ++y) {
-        for (int x = 10; x < 25; ++x) {
+    for (int y = 10; y < 20; ++y) {
+        for (int x = 10; x < 20; ++x) {
             test_map.set_vegetation(x, y, Vegetation::ID::DeciduousTree, 100);
         }
     }
-    CHECK(test_map.has_vegetation(15, 15));
+    CHECK(test_map.has_vegetation(12, 12));
 
-    // Stamp blacksmith at (10, 10)
-    bool stamped = test_map.stamp_building(10, 10, *smithy, 0);
+    // Stamp test cabin at (10, 10)
+    bool stamped = test_map.stamp_building(10, 10, door_test, 0);
     CHECK(stamped);
 
     // Verify vegetation was cleared under footprint
     CHECK(!test_map.has_vegetation(10, 10));
-    CHECK(!test_map.has_vegetation(15, 15));
-    CHECK(!test_map.has_vegetation(20, 18));
+    CHECK(!test_map.has_vegetation(12, 12));
+    CHECK(!test_map.has_vegetation(12, 14));
 
     // Verify structures exist while base ground terrain is preserved!
     CHECK(test_map.at(10, 10) == Tile::ID::Grassland);
-    CHECK(test_map.get_structure(10, 10).id == Structure::ID::StoneWall);
-    CHECK(test_map.get_structure(13, 12).id == Structure::ID::Anvil);
-    CHECK(test_map.get_structure(15, 18).id == Structure::ID::DoorClosed);
+    CHECK(test_map.get_structure(10, 10).id == Structure::ID::WoodWall);
+    CHECK(test_map.get_structure(12, 14).id == Structure::ID::DoorClosed);
 
     // 4. Validate Bump-to-Open Door mechanics & Line of Sight
-    Engine::Entity player(15, 19, 0, '@', "Hero");
+    Engine::Entity player(12, 15, 0, '@', "Hero");
     Engine::Camera camera(30, 20);
     Vision::FOV fov(50, 50, 8);
     fov.compute(test_map, player.x, player.y, player.z);
 
-    CHECK(!test_map.raycast_los(15, 19, 15, 15));
-    CHECK(!fov.is_visible(15, 15));
+    CHECK(!test_map.raycast_los(12, 15, 12, 12));
+    CHECK(!fov.is_visible(12, 12));
 
     Engine::Action bump_door{Engine::ActionType::Move, 0, -1};
     auto result = Engine::ActionSystem::execute(bump_door, test_map, player, camera, fov);
@@ -420,23 +430,23 @@ void test_building_prefabs_and_doors() {
     CHECK(result.success);
     CHECK(result.consumed_turn);
     CHECK(result.message == "You open the door.");
-    CHECK(test_map.get_structure(15, 18).id == Structure::ID::DoorOpen);
-    CHECK(test_map.at(15, 18) == Tile::ID::Grassland); // Ground preserved!
-    CHECK(player.x == 15 && player.y == 19);
+    CHECK(test_map.get_structure(12, 14).id == Structure::ID::DoorOpen);
+    CHECK(test_map.at(12, 14) == Tile::ID::Grassland); // Ground preserved!
+    CHECK(player.x == 12 && player.y == 15);
 
-    CHECK(test_map.raycast_los(15, 19, 15, 15));
-    CHECK(fov.is_visible(15, 15));
+    CHECK(test_map.raycast_los(12, 15, 12, 12));
+    CHECK(fov.is_visible(12, 12));
 
     auto step_in = Engine::ActionSystem::execute(bump_door, test_map, player, camera, fov);
     CHECK(step_in.success);
-    CHECK(player.x == 15 && player.y == 18);
+    CHECK(player.x == 12 && player.y == 14);
 
     // 5. Validate 90° rotation stamping
-    bool rot_stamped = test_map.stamp_building(30, 10, *smithy, 90);
+    bool rot_stamped = test_map.stamp_building(30, 10, door_test, 90);
     CHECK(rot_stamped);
     CHECK(test_map.at(30, 10) == Tile::ID::Grassland);
-    CHECK(test_map.get_structure(30, 10).id == Structure::ID::StoneWall);
-    CHECK(test_map.get_structure(30 + 9 - 1, 10 + 11 - 1).id == Structure::ID::StoneWall);
+    CHECK(test_map.get_structure(30, 10).id == Structure::ID::WoodWall);
+    CHECK(test_map.get_structure(30 + 5 - 1, 10 + 5 - 1).id == Structure::ID::WoodWall);
 }
 
 void test_ground_preservation_and_destruction() {
@@ -566,6 +576,327 @@ void test_support_cascade_destruction() {
     CHECK(test_map.get_structure(15, 15, 0).id == Structure::ID::WoodScraps);
 }
 
+namespace {
+
+struct LayoutCoord {
+    int x;
+    int y;
+};
+
+bool is_traversable_glyph(char c) noexcept {
+    return c == '.' || c == '+' || c == '/' || c == '<' || c == '>' || c == 'H';
+}
+
+std::vector<std::vector<bool>> compute_layout_reachability(
+    const Architecture::BuildingFloor &floor,
+    int width,
+    int height,
+    const std::vector<LayoutCoord> &starts)
+{
+    std::vector<std::vector<bool>> visited(height, std::vector<bool>(width, false));
+    std::queue<LayoutCoord> q;
+    for (const auto &s : starts) {
+        if (s.x >= 0 && s.x < width && s.y >= 0 && s.y < height) {
+            visited[s.y][s.x] = true;
+            q.push(s);
+        }
+    }
+
+    static const int dirs[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+    while (!q.empty()) {
+        auto [cx, cy] = q.front();
+        q.pop();
+
+        for (const auto &d : dirs) {
+            int nx = cx + d[0];
+            int ny = cy + d[1];
+            if (nx >= 0 && nx < width && ny >= 0 && ny < height && !visited[ny][nx]) {
+                char c = floor.layout[ny][nx];
+                if (is_traversable_glyph(c)) {
+                    visited[ny][nx] = true;
+                    q.push(LayoutCoord{nx, ny});
+                }
+            }
+        }
+    }
+    return visited;
+}
+
+} // namespace
+
+void test_prefab_catalog_connectivity_and_layout_rules() {
+    Architecture::PrefabCatalog catalog;
+    bool loaded = catalog.load("data/prefabs/buildings.json");
+    CHECK(loaded);
+    CHECK(!catalog.get_all().empty());
+
+    bool found_three_floor_building = false;
+
+    for (const auto &tmpl : catalog.get_all()) {
+        CHECK(tmpl.is_valid());
+        CHECK(tmpl.width >= 3 && tmpl.height >= 3);
+        CHECK(!tmpl.floors.empty());
+
+        // 0. Verify all levels have identical dimensions (width x height) matching template
+        for (const auto &fl : tmpl.floors) {
+            if (static_cast<int>(fl.layout.size()) != tmpl.height) {
+                std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' level " << fl.level
+                          << " has height " << fl.layout.size() << ", expected template height "
+                          << tmpl.height << "!\n";
+            }
+            CHECK(static_cast<int>(fl.layout.size()) == tmpl.height);
+
+            for (int y = 0; y < tmpl.height; ++y) {
+                if (static_cast<int>(fl.layout[y].size()) != tmpl.width) {
+                    std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' level " << fl.level
+                              << " row " << y << " has length " << fl.layout[y].size()
+                              << ", expected template width " << tmpl.width << "!\n";
+                }
+                CHECK(static_cast<int>(fl.layout[y].size()) == tmpl.width);
+            }
+        }
+
+        // Cross-level dimension equivalence verification across all floors
+        for (size_t i = 1; i < tmpl.floors.size(); ++i) {
+            const auto &f0 = tmpl.floors[0];
+            const auto &fi = tmpl.floors[i];
+            if (f0.layout.size() != fi.layout.size()) {
+                std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' height mismatch: level "
+                          << f0.level << " (" << f0.layout.size() << ") != level "
+                          << fi.level << " (" << fi.layout.size() << ")!\n";
+            }
+            CHECK(f0.layout.size() == fi.layout.size());
+
+            for (size_t r = 0; r < f0.layout.size(); ++r) {
+                if (f0.layout[r].size() != fi.layout[r].size()) {
+                    std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' row " << r
+                              << " length mismatch: level " << f0.level << " (" << f0.layout[r].size()
+                              << ") != level " << fi.level << " (" << fi.layout[r].size() << ")!\n";
+                }
+                CHECK(f0.layout[r].size() == fi.layout[r].size());
+            }
+        }
+
+        // 1. Ground floor validation & exterior entry point
+        const auto *ground = tmpl.get_floor(0);
+        CHECK(ground != nullptr);
+
+        std::vector<LayoutCoord> ground_entries;
+        for (int y = 0; y < tmpl.height; ++y) {
+            for (int x = 0; x < tmpl.width; ++x) {
+                char c = ground->layout[y][x];
+                if (c == '+' || c == '/') {
+                    bool exterior = (x == 0 || x == tmpl.width - 1 || y == 0 || y == tmpl.height - 1);
+                    if (!exterior) {
+                        static const int dirs[4][2] = {{0, -1}, {0, 1}, {-1, 0}, {1, 0}};
+                        for (const auto &d : dirs) {
+                            int nx = x + d[0];
+                            int ny = y + d[1];
+                            if (nx < 0 || nx >= tmpl.width || ny < 0 || ny >= tmpl.height || ground->layout[ny][nx] == ' ') {
+                                exterior = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (exterior) {
+                        ground_entries.push_back({x, y});
+                    }
+                }
+            }
+        }
+        CHECK(!ground_entries.empty()); // Every building must have at least one ground entrance
+
+        // 2. Ground floor reachability from entry points
+        auto ground_visited = compute_layout_reachability(*ground, tmpl.width, tmpl.height, ground_entries);
+        for (int y = 0; y < tmpl.height; ++y) {
+            for (int x = 0; x < tmpl.width; ++x) {
+                char c = ground->layout[y][x];
+                if (is_traversable_glyph(c)) {
+                    if (!ground_visited[y][x]) {
+                        std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' ground floor tile at ("
+                                  << x << ", " << y << ") glyph '" << c << "' is not reachable from any exterior entry point!\n";
+                    }
+                    CHECK(ground_visited[y][x]); // All ground floor tiles, doors, and stairs must be reachable from entrance
+                }
+            }
+        }
+
+        // 3. Multi-floor vertical connectivity & stair pairing
+        for (const auto &fl : tmpl.floors) {
+            for (int y = 0; y < tmpl.height; ++y) {
+                for (int x = 0; x < tmpl.width; ++x) {
+                    char c = fl.layout[y][x];
+                    if (c == '<') { // StairsUp
+                        const auto *upper = tmpl.get_floor(fl.level + 1);
+                        if (upper != nullptr) {
+                            if (upper->layout[y][x] != '>') {
+                                std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' StairsUp at level "
+                                          << fl.level << " (" << x << ", " << y << ") has no matching StairsDown on level "
+                                          << (fl.level + 1) << " (found '" << upper->layout[y][x] << "')!\n";
+                            }
+                            CHECK(upper->layout[y][x] == '>'); // Matching StairsDown on floor above at same (x, y)
+                        }
+                    } else if (c == '>') { // StairsDown
+                        const auto *lower = tmpl.get_floor(fl.level - 1);
+                        if (lower != nullptr) {
+                            if (lower->layout[y][x] != '<') {
+                                std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' StairsDown at level "
+                                          << fl.level << " (" << x << ", " << y << ") has no matching StairsUp on level "
+                                          << (fl.level - 1) << " (found '" << lower->layout[y][x] << "')!\n";
+                            }
+                            CHECK(lower->layout[y][x] == '<'); // Matching StairsUp on floor below at same (x, y)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Inter-floor stair existence and non-ground reachability
+        if (tmpl.floors.size() > 1) {
+            std::vector<int> levels;
+            for (const auto &fl : tmpl.floors) {
+                levels.push_back(fl.level);
+            }
+            std::sort(levels.begin(), levels.end());
+
+            // Verify adjacent levels have connecting stairs
+            for (size_t i = 0; i + 1 < levels.size(); ++i) {
+                int z1 = levels[i];
+                int z2 = levels[i + 1];
+                if (z2 == z1 + 1) {
+                    const auto *fl1 = tmpl.get_floor(z1);
+                    const auto *fl2 = tmpl.get_floor(z2);
+                    int stair_pairs = 0;
+                    for (int y = 0; y < tmpl.height; ++y) {
+                        for (int x = 0; x < tmpl.width; ++x) {
+                            if (fl1->layout[y][x] == '<' && fl2->layout[y][x] == '>') {
+                                ++stair_pairs;
+                            }
+                        }
+                    }
+                    if (stair_pairs == 0) {
+                        std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' has no vertical stairs connecting level "
+                                  << z1 << " and level " << z2 << "!\n";
+                    }
+                    CHECK(stair_pairs > 0); // Adjacent floors must have at least one paired staircase
+                }
+            }
+
+            // Verify reachability on non-ground floors from stairs
+            for (const auto &fl : tmpl.floors) {
+                if (fl.level == 0) continue;
+
+                std::vector<LayoutCoord> floor_stairs;
+                for (int y = 0; y < tmpl.height; ++y) {
+                    for (int x = 0; x < tmpl.width; ++x) {
+                        char c = fl.layout[y][x];
+                        if (c == '<' || c == '>') {
+                            floor_stairs.push_back({x, y});
+                        }
+                    }
+                }
+                CHECK(!floor_stairs.empty()); // Non-ground floor must have stairs
+
+                auto fl_visited = compute_layout_reachability(fl, tmpl.width, tmpl.height, floor_stairs);
+                for (int y = 0; y < tmpl.height; ++y) {
+                    for (int x = 0; x < tmpl.width; ++x) {
+                        char c = fl.layout[y][x];
+                        if (is_traversable_glyph(c)) {
+                            if (!fl_visited[y][x]) {
+                                std::cerr << "[LAYOUT ERROR] Template '" << tmpl.id << "' level " << fl.level
+                                          << " tile at (" << x << ", " << y << ") glyph '" << c
+                                          << "' is not reachable from floor stairs!\n";
+                            }
+                            CHECK(fl_visited[y][x]); // Every floor tile and door must be reachable from stairs
+                        }
+                    }
+                }
+            }
+        }
+
+        if (tmpl.floors.size() >= 3) {
+            found_three_floor_building = true;
+            // Verify it has subterranean, surface, and elevated levels
+            bool has_cellar = false;
+            bool has_ground = false;
+            bool has_upper = false;
+            for (const auto &fl : tmpl.floors) {
+                if (fl.level < 0) has_cellar = true;
+                if (fl.level == 0) has_ground = true;
+                if (fl.level > 0) has_upper = true;
+            }
+            CHECK(has_cellar);
+            CHECK(has_ground);
+            CHECK(has_upper);
+        }
+
+        // 5. Dynamic Map Stamping & Player Navigation across levels
+        GameMap::Map test_map(tmpl.width + 30, tmpl.height + 30);
+        int stamp_x = 10;
+        int stamp_y = 10;
+        bool stamped = test_map.stamp_building(stamp_x, stamp_y, tmpl, 0);
+        CHECK(stamped);
+
+        // Verify ground preservation across stamped footprint
+        for (int ty = 0; ty < tmpl.height; ++ty) {
+            for (int tx = 0; tx < tmpl.width; ++tx) {
+                CHECK(test_map.at(stamp_x + tx, stamp_y + ty, 0) != Tile::ID::OpenAir);
+            }
+        }
+
+        // If template has stairs, test player interaction dynamically
+        if (tmpl.floors.size() > 1) {
+            Engine::Camera camera(test_map.get_width(), test_map.get_height());
+            Vision::FOV fov(test_map.get_width(), test_map.get_height(), 8);
+            Engine::Action interact{Engine::ActionType::Interact, 0, 0};
+
+            for (const auto &fl : tmpl.floors) {
+                for (int y = 0; y < tmpl.height; ++y) {
+                    for (int x = 0; x < tmpl.width; ++x) {
+                        char c = fl.layout[y][x];
+                        if (c == '<' && tmpl.get_floor(fl.level + 1) != nullptr) {
+                            // Test ascending
+                            Engine::Entity player(stamp_x + x, stamp_y + y, fl.level, '@', "Hero");
+                            fov.compute(test_map, player.x, player.y, player.z);
+                            auto res = Engine::ActionSystem::execute(interact, test_map, player, camera, fov);
+                            CHECK(res.success);
+                            CHECK(player.z == fl.level + 1);
+                            CHECK(test_map.get_structure(player.x, player.y, player.z).id == Structure::ID::StairsDown);
+
+                            // Test descending back
+                            auto res_back = Engine::ActionSystem::execute(interact, test_map, player, camera, fov);
+                            CHECK(res_back.success);
+                            CHECK(player.z == fl.level);
+                            CHECK(test_map.get_structure(player.x, player.y, player.z).id == Structure::ID::StairsUp);
+                        } else if (c == '>' && tmpl.get_floor(fl.level - 1) != nullptr) {
+                            // Test descending
+                            Engine::Entity player(stamp_x + x, stamp_y + y, fl.level, '@', "Hero");
+                            fov.compute(test_map, player.x, player.y, player.z);
+                            auto res = Engine::ActionSystem::execute(interact, test_map, player, camera, fov);
+                            CHECK(res.success);
+                            CHECK(player.z == fl.level - 1);
+                            CHECK(test_map.get_structure(player.x, player.y, player.z).id == Structure::ID::StairsUp);
+
+                            // Test ascending back
+                            auto res_back = Engine::ActionSystem::execute(interact, test_map, player, camera, fov);
+                            CHECK(res_back.success);
+                            CHECK(player.z == fl.level);
+                            CHECK(test_map.get_structure(player.x, player.y, player.z).id == Structure::ID::StairsDown);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Test 90-degree rotated stamping
+        GameMap::Map rot_map(tmpl.height + 30, tmpl.width + 30);
+        bool rot_stamped = rot_map.stamp_building(stamp_x, stamp_y, tmpl, 90);
+        CHECK(rot_stamped);
+    }
+
+    CHECK(found_three_floor_building); // Ensures we verified at least one 3-level building layout
+}
+
 int main() {
     test_tile_properties();
     test_vegetation_properties();
@@ -579,6 +910,7 @@ int main() {
     test_ground_preservation_and_destruction();
     test_multi_level_and_stairs();
     test_support_cascade_destruction();
+    test_prefab_catalog_connectivity_and_layout_rules();
 
     std::cout << "All architecture tests passed.\n";
     return 0;

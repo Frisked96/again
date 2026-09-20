@@ -96,6 +96,39 @@
             }
           },
           "description": "Named room bounding boxes inside the building"
+        },
+        "floors": {
+          "type": "array",
+          "description": "Multi-level vertical floor configurations (-1 = cellar, 0 = ground, 1 = upper)",
+          "items": {
+            "type": "object",
+            "required": ["level", "layout"],
+            "properties": {
+              "level": {
+                "type": "integer",
+                "description": "Vertical Z elevation of this floor"
+              },
+              "name": {
+                "type": "string",
+                "description": "Display name of this specific floor"
+              },
+              "wall_type": {
+                "type": "string"
+              },
+              "floor_type": {
+                "type": "string"
+              },
+              "layout": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "rooms": {
+                "$ref": "#/definitions/BuildingTemplate/properties/rooms"
+              }
+            }
+          }
         }
       }
     }

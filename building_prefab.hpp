@@ -63,7 +63,10 @@ struct BuildingTemplate {
   [[nodiscard]] bool is_valid() const noexcept {
     if (width <= 0 || height <= 0) return false;
     if (!floors.empty()) {
-      return floors[0].is_valid(width, height);
+      for (const auto &f : floors) {
+        if (!f.is_valid(width, height)) return false;
+      }
+      return true;
     }
     return layout.size() == static_cast<size_t>(height);
   }

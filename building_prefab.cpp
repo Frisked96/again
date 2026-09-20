@@ -113,15 +113,15 @@ constexpr std::string_view EMBEDDED_DEFAULT_BUILDINGS_JSON = R"({
       "layout": [
         "##############",
         "#......#.....#",
-        "#......#.....#",
-        "#..==..#..>..#",
+        "#.<....#..>..#",
+        "#..==..#.....#",
         "#......###+###",
         "#......#.....#",
         "#...+..#.....#",
         "#......###+###",
         "#......#.....#",
-        "#......+.....#",
         "#......#.....#",
+        "#......+.....#",
         "######+#######"
       ],
       "rooms": [
@@ -130,16 +130,144 @@ constexpr std::string_view EMBEDDED_DEFAULT_BUILDINGS_JSON = R"({
           "x1": 1, "y1": 1, "x2": 6, "y2": 10
         },
         {
-          "name": "Cellar Storage",
+          "name": "Cellar Stairwell & Pantry",
           "x1": 8, "y1": 1, "x2": 12, "y2": 3
         },
         {
-          "name": "Guest Room North",
+          "name": "Guest Parlor North",
           "x1": 8, "y1": 5, "x2": 12, "y2": 6
         },
         {
-          "name": "Guest Room South",
+          "name": "Guest Parlor South",
           "x1": 8, "y1": 8, "x2": 12, "y2": 10
+        }
+      ],
+      "floors": [
+        {
+          "level": -1,
+          "name": "Wine & Ale Cellar",
+          "wall_type": "StoneWall",
+          "floor_type": "StoneFloor",
+          "layout": [
+            "##############",
+            "#.....#......#",
+            "#.=...#...<..#",
+            "#.=...#......#",
+            "###+####+#####",
+            "#............#",
+            "#..##....##..#",
+            "#..##....##..#",
+            "#....#+##....#",
+            "#....#..#....#",
+            "#....#..#....#",
+            "##############"
+          ],
+          "rooms": [
+            {
+              "name": "Wine & Ale Keg Vault",
+              "x1": 7, "y1": 1, "x2": 12, "y2": 3
+            },
+            {
+              "name": "Cold Food Stores",
+              "x1": 1, "y1": 1, "x2": 5, "y2": 3
+            },
+            {
+              "name": "Cellar Great Hall",
+              "x1": 1, "y1": 5, "x2": 12, "y2": 7
+            },
+            {
+              "name": "Smuggler's Secret Vault",
+              "x1": 5, "y1": 9, "x2": 7, "y2": 10
+            }
+          ]
+        },
+        {
+          "level": 0,
+          "name": "Tavern Common Room & Taproom",
+          "wall_type": "WoodWall",
+          "floor_type": "WoodFloor",
+          "layout": [
+            "##############",
+            "#......#.....#",
+            "#.<....#..>..#",
+            "#..==..#.....#",
+            "#......###+###",
+            "#......#.....#",
+            "#...+..#.....#",
+            "#......###+###",
+            "#......#.....#",
+            "#......#.....#",
+            "#......+.....#",
+            "######+#######"
+          ],
+          "rooms": [
+            {
+              "name": "Tavern Taproom",
+              "x1": 1, "y1": 1, "x2": 6, "y2": 10
+            },
+            {
+              "name": "Cellar Stairwell & Pantry",
+              "x1": 8, "y1": 1, "x2": 12, "y2": 3
+            },
+            {
+              "name": "Guest Parlor North",
+              "x1": 8, "y1": 5, "x2": 12, "y2": 6
+            },
+            {
+              "name": "Guest Parlor South",
+              "x1": 8, "y1": 8, "x2": 12, "y2": 10
+            }
+          ]
+        },
+        {
+          "level": 1,
+          "name": "Guest Bedchambers & Innkeeper Suite",
+          "wall_type": "WoodWall",
+          "floor_type": "WoodFloor",
+          "layout": [
+            "##############",
+            "#....#...#...#",
+            "#.>..+...#...#",
+            "#....#...#...#",
+            "###+###+###+##",
+            "#............#",
+            "#............#",
+            "##+###+###+###",
+            "#...#...#....#",
+            "#...#...+....#",
+            "#...#...#....#",
+            "##############"
+          ],
+          "rooms": [
+            {
+              "name": "Stair Landing & Foyer",
+              "x1": 1, "y1": 1, "x2": 4, "y2": 3
+            },
+            {
+              "name": "Upper Hallway",
+              "x1": 1, "y1": 5, "x2": 12, "y2": 6
+            },
+            {
+              "name": "North Bedchamber",
+              "x1": 6, "y1": 1, "x2": 8, "y2": 3
+            },
+            {
+              "name": "Innkeeper's Suite",
+              "x1": 10, "y1": 1, "x2": 12, "y2": 3
+            },
+            {
+              "name": "South Bedchamber West",
+              "x1": 1, "y1": 8, "x2": 3, "y2": 10
+            },
+            {
+              "name": "South Bedchamber Mid",
+              "x1": 5, "y1": 8, "x2": 7, "y2": 10
+            },
+            {
+              "name": "Noble Suite",
+              "x1": 9, "y1": 8, "x2": 12, "y2": 10
+            }
+          ]
         }
       ]
     },
@@ -462,6 +590,36 @@ bool PrefabCatalog::load_from_string(std::string_view json_str) {
         floor_reader.set_pos(0);
         if (floor_reader.find_key("layout")) bf.layout = floor_reader.read_string_array();
 
+        // Parse rooms inside this floor if present
+        floor_reader.set_pos(0);
+        if (floor_reader.find_key("rooms")) {
+          size_t f_rooms_array_pos = floor_reader.get_pos();
+          size_t r_pos = floor_chunk.find('{', f_rooms_array_pos);
+          while (r_pos != std::string_view::npos && r_pos < floor_chunk.size()) {
+            size_t r_end = floor_chunk.find('}', r_pos);
+            if (r_end == std::string_view::npos) break;
+
+            std::string_view r_chunk = floor_chunk.substr(r_pos, r_end - r_pos + 1);
+            SimpleJsonReader r_reader(r_chunk);
+            RoomDescriptor rd;
+            if (r_reader.find_key("name")) rd.name = r_reader.read_string();
+            r_reader.set_pos(0);
+            if (r_reader.find_key("x1")) rd.x1 = r_reader.read_int();
+            r_reader.set_pos(0);
+            if (r_reader.find_key("y1")) rd.y1 = r_reader.read_int();
+            r_reader.set_pos(0);
+            if (r_reader.find_key("x2")) rd.x2 = r_reader.read_int();
+            r_reader.set_pos(0);
+            if (r_reader.find_key("y2")) rd.y2 = r_reader.read_int();
+
+            if (!rd.name.empty()) {
+              bf.rooms.push_back(std::move(rd));
+            }
+
+            r_pos = floor_chunk.find('{', r_end + 1);
+          }
+        }
+
         if (!bf.layout.empty()) {
           tmpl.floors.push_back(std::move(bf));
         }
@@ -480,6 +638,19 @@ bool PrefabCatalog::load_from_string(std::string_view json_str) {
         tmpl.layout,
         tmpl.rooms
       });
+    } else if (tmpl.layout.empty() && !tmpl.floors.empty()) {
+      for (const auto &f : tmpl.floors) {
+        if (f.level == 0) {
+          tmpl.layout = f.layout;
+          tmpl.rooms = f.rooms;
+          tmpl.wall_type = f.wall_type;
+          tmpl.floor_type = f.floor_type;
+          break;
+        }
+      }
+      if (tmpl.layout.empty()) {
+        tmpl.layout = tmpl.floors[0].layout;
+      }
     }
 
     if (tmpl.is_valid()) {
