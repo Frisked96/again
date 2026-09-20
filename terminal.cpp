@@ -9,6 +9,7 @@
 namespace Engine {
 
 static Terminal *g_active_terminal = nullptr;
+static int s_terminal_instance_count = 0;
 
 void Terminal::setup_signals() {
   struct sigaction sa;
@@ -37,14 +38,21 @@ void Terminal::restore_terminal() {
 
 Terminal::Terminal() {
   g_active_terminal = this;
-  setup_signals();
-  enable_raw_mode();
-  hide_cursor();
-  std::cout << "\033[?1049h\033[2J\033[H" << std::flush;
+  if (s_terminal_instance_count == 0) {
+    setup_signals();
+    enable_raw_mode();
+    hide_cursor();
+    std::cout << "\033[?1049h\033[2J\033[H" << std::flush;
+  }
+  ++s_terminal_instance_count;
 }
 
 Terminal::~Terminal() {
-  restore_terminal();
+  --s_terminal_instance_count;
+  if (s_terminal_instance_count <= 0) {
+    restore_terminal();
+    s_terminal_instance_count = 0;
+  }
   if (g_active_terminal == this) {
     g_active_terminal = nullptr;
   }
@@ -126,6 +134,9 @@ RawKey Terminal::read_key(int timeout_ms) {
 
   if (c == '\n' || c == '\r') {
     return {KeyCode::Enter, c};
+  }
+  if (c == 127 || c == 8) {
+    return {KeyCode::Backspace, c};
   }
   if (c == ' ') {
     return {KeyCode::Space, ' '};

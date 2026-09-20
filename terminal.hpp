@@ -14,6 +14,7 @@ enum class KeyCode {
   Enter,
   Escape,
   Space,
+  Backspace,
   Timeout
 };
 

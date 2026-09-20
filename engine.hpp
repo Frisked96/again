@@ -17,7 +17,7 @@ private:
   Entity player;
   Camera camera;
   Vision::FOV fov;
-  Terminal terminal;
+  Terminal &terminal;
   Renderer renderer;
   MessageLog message_log;
   bool is_running{false};
@@ -28,7 +28,7 @@ private:
   void init();
 
 public:
-  explicit GameEngine(int map_width = 10000, int map_height = 10000,
+  explicit GameEngine(Terminal &term, int map_width = 10000, int map_height = 10000,
                       int viewport_width = 50, int viewport_height = 18,
                       int fov_radius = 8);
   void run();

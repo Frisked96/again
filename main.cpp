@@ -1,17 +1,20 @@
-#include "engine.hpp"
+#include "main_menu.hpp"
+#include "settings.hpp"
 #include "terminal.hpp"
-#include <algorithm>
 
 int main() {
+  Engine::Terminal terminal;
+
   int term_rows = 24;
   int term_cols = 80;
   Engine::Terminal::get_size(term_rows, term_cols);
 
-  // Dynamic viewport sizing fitting safely within terminal boundaries to prevent scrolling
-  int view_w = std::clamp(term_cols - 2, 40, 70);
-  int view_h = std::clamp(term_rows - 7, 10, 18);
+  // Auto-generate settings.json if non-existent, or load existing configuration
+  Engine::Settings settings =
+      Engine::Settings::load_or_create(Engine::Settings::DEFAULT_SETTINGS_PATH, term_cols, term_rows);
 
-  Engine::GameEngine game(10000, 10000, view_w, view_h, 8);
-  game.run();
+  Engine::MainMenu menu(terminal, settings);
+  menu.run();
+
   return 0;
 }

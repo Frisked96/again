@@ -4,7 +4,6 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
-#include <filesystem>
 
 namespace Architecture {
 
@@ -118,7 +117,7 @@ constexpr std::string_view EMBEDDED_DEFAULT_BUILDINGS_JSON = R"({
         "#..==..#..>..#",
         "#......###+###",
         "#......#.....#",
-        "#......+.....#",
+        "#...+..#.....#",
         "#......###+###",
         "#......#.....#",
         "#......+.....#",
@@ -320,32 +319,13 @@ public:
 
 bool PrefabCatalog::load(const std::string &filepath) {
   templates.clear();
-
-  std::vector<std::string> candidates;
-  if (!filepath.empty()) {
-    candidates.push_back(filepath);
-  }
-  candidates.push_back("data/prefabs/buildings.json");
-  candidates.push_back("../data/prefabs/buildings.json");
-
-  // Attempt resolving relative to current executable
-  std::error_code ec;
-  auto exe_symlink = std::filesystem::read_symlink("/proc/self/exe", ec);
-  if (!ec) {
-    auto exe_dir = exe_symlink.parent_path();
-    candidates.push_back((exe_dir / "data/prefabs/buildings.json").string());
-    candidates.push_back((exe_dir / "../data/prefabs/buildings.json").string());
-  }
-
-  for (const auto &p : candidates) {
-    std::ifstream f(p);
-    if (f.is_open()) {
-      std::stringstream ss;
-      ss << f.rdbuf();
-      std::string content = ss.str();
-      if (load_from_string(content)) {
-        return true;
-      }
+  std::ifstream f(filepath);
+  if (f.is_open()) {
+    std::stringstream ss;
+    ss << f.rdbuf();
+    std::string content = ss.str();
+    if (load_from_string(content)) {
+      return true;
     }
   }
 

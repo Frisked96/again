@@ -1,3 +1,5 @@
 *.o
 game
 test_arch
+test_settings
+settings.json

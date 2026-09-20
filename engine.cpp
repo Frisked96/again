@@ -3,13 +3,14 @@
 
 namespace Engine {
 
-GameEngine::GameEngine(int map_width, int map_height,
+GameEngine::GameEngine(Terminal &term, int map_width, int map_height,
                        int viewport_width, int viewport_height,
                        int fov_radius)
     : map(map_width, map_height),
       player(1, 1, '@', "Hero"),
       camera(viewport_width, viewport_height),
       fov(map_width, map_height, fov_radius),
+      terminal(term),
       message_log("Explore the realm.") {
   init();
 }
@@ -38,9 +39,7 @@ void GameEngine::run() {
 
     handle_input();
   }
-
   Terminal::clear_screen();
-  terminal.write("Exited game. Goodbye!\n");
 }
 
 void GameEngine::tick() {
