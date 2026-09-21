@@ -1,5 +1,4 @@
 *.o
 game
-test_arch
-test_settings
+/test_*
 settings.json

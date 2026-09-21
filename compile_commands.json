@@ -46,7 +46,37 @@
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_world_architecture.cpp -o tests/test_world_architecture.o",
-    "file": "tests/test_world_architecture.cpp"
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_tile.cpp -o tests/test_tile.o",
+    "file": "tests/test_tile.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_vegetation.cpp -o tests/test_vegetation.o",
+    "file": "tests/test_vegetation.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_weather.cpp -o tests/test_weather.o",
+    "file": "tests/test_weather.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_map.cpp -o tests/test_map.o",
+    "file": "tests/test_map.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_vision.cpp -o tests/test_vision.o",
+    "file": "tests/test_vision.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_building_prefab.cpp -o tests/test_building_prefab.o",
+    "file": "tests/test_building_prefab.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_settings.cpp -o tests/test_settings.o",
+    "file": "tests/test_settings.cpp"
   }
 ]
