@@ -1,7 +1,7 @@
 #include "test_common.hpp"
-#include "../game_map.hpp"
-#include "../tile.hpp"
-#include "../vegetation.hpp"
+#include "game_map.hpp"
+#include "tile.hpp"
+#include "vegetation.hpp"
 
 void test_vegetation_properties() {
     // Deciduous Oak

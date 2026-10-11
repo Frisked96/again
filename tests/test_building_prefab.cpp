@@ -1,13 +1,13 @@
 #include "test_common.hpp"
-#include "../action.hpp"
-#include "../building_prefab.hpp"
-#include "../camera.hpp"
-#include "../entity.hpp"
-#include "../game_map.hpp"
-#include "../structure.hpp"
-#include "../tile.hpp"
-#include "../vegetation.hpp"
-#include "../vision.hpp"
+#include "action.hpp"
+#include "building_prefab.hpp"
+#include "camera.hpp"
+#include "entity.hpp"
+#include "game_map.hpp"
+#include "structure.hpp"
+#include "tile.hpp"
+#include "vegetation.hpp"
+#include "vision.hpp"
 
 #include <algorithm>
 #include <iostream>

@@ -1,10 +1,10 @@
 #include "test_common.hpp"
-#include "../game_map.hpp"
-#include "../map_generator.hpp"
-#include "../region.hpp"
-#include "../tile.hpp"
-#include "../vegetation.hpp"
-#include "../weather.hpp"
+#include "game_map.hpp"
+#include "map_generator.hpp"
+#include "region.hpp"
+#include "tile.hpp"
+#include "vegetation.hpp"
+#include "weather.hpp"
 
 #include <chrono>
 #include <iomanip>

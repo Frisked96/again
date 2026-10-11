@@ -1,8 +1,8 @@
 #include "test_common.hpp"
-#include "../game_map.hpp"
-#include "../tile.hpp"
-#include "../vegetation.hpp"
-#include "../vision.hpp"
+#include "game_map.hpp"
+#include "tile.hpp"
+#include "vegetation.hpp"
+#include "vision.hpp"
 
 void test_vision_system() {
     GameMap::Map map(100, 100);

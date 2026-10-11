@@ -1,8 +1,8 @@
 #include "test_common.hpp"
-#include "../game_map.hpp"
-#include "../map_generator.hpp"
-#include "../region.hpp"
-#include "../weather.hpp"
+#include "game_map.hpp"
+#include "map_generator.hpp"
+#include "region.hpp"
+#include "weather.hpp"
 
 #include <cmath>
 #include <string_view>

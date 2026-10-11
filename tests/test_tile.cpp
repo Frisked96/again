@@ -1,5 +1,5 @@
 #include "test_common.hpp"
-#include "../tile.hpp"
+#include "tile.hpp"
 
 void test_tile_properties() {
     // Test water bodies

@@ -1,82 +1,102 @@
 [
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c game_map.cpp -o game_map.o",
-    "file": "game_map.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/main.cpp -o build/main.o",
+    "file": "src/main.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c map_generator.cpp -o map_generator.o",
-    "file": "map_generator.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/game_map.cpp -o build/game_map.o",
+    "file": "src/game_map.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c vision.cpp -o vision.o",
-    "file": "vision.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/map_generator.cpp -o build/map_generator.o",
+    "file": "src/map_generator.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c building_prefab.cpp -o building_prefab.o",
-    "file": "building_prefab.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/terminal.cpp -o build/terminal.o",
+    "file": "src/terminal.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c action.cpp -o action.o",
-    "file": "action.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/renderer.cpp -o build/renderer.o",
+    "file": "src/renderer.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c camera.cpp -o camera.o",
-    "file": "camera.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/engine.cpp -o build/engine.o",
+    "file": "src/engine.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c renderer.cpp -o renderer.o",
-    "file": "renderer.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/camera.cpp -o build/camera.o",
+    "file": "src/camera.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c terminal_ui.cpp -o terminal_ui.o",
-    "file": "terminal_ui.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/vision.cpp -o build/vision.o",
+    "file": "src/vision.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c main.cpp -o main.o",
-    "file": "main.cpp"
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/action.cpp -o build/action.o",
+    "file": "src/action.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_tile.cpp -o tests/test_tile.o",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/building_prefab.cpp -o build/building_prefab.o",
+    "file": "src/building_prefab.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/settings.cpp -o build/settings.o",
+    "file": "src/settings.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/settings_menu.cpp -o build/settings_menu.o",
+    "file": "src/settings_menu.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c src/main_menu.cpp -o build/main_menu.o",
+    "file": "src/main_menu.cpp"
+  },
+  {
+    "directory": "/home/arvind/Documents/again",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c tests/test_tile.cpp -o build/tests/test_tile.o",
     "file": "tests/test_tile.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_vegetation.cpp -o tests/test_vegetation.o",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c tests/test_vegetation.cpp -o build/tests/test_vegetation.o",
     "file": "tests/test_vegetation.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_weather.cpp -o tests/test_weather.o",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c tests/test_weather.cpp -o build/tests/test_weather.o",
     "file": "tests/test_weather.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_map.cpp -o tests/test_map.o",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c tests/test_map.cpp -o build/tests/test_map.o",
     "file": "tests/test_map.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_vision.cpp -o tests/test_vision.o",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c tests/test_vision.cpp -o build/tests/test_vision.o",
     "file": "tests/test_vision.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_building_prefab.cpp -o tests/test_building_prefab.o",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c tests/test_building_prefab.cpp -o build/tests/test_building_prefab.o",
     "file": "tests/test_building_prefab.cpp"
   },
   {
     "directory": "/home/arvind/Documents/again",
-    "command": "/usr/bin/g++ -std=c++20 -Wall -Wextra -pedantic -O2 -c tests/test_settings.cpp -o tests/test_settings.o",
+    "command": "clang++ -std=c++20 -Wall -Wextra -pedantic -O2 -Iinclude -c tests/test_settings.cpp -o build/tests/test_settings.o",
     "file": "tests/test_settings.cpp"
   }
 ]

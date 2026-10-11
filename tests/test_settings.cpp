@@ -1,5 +1,5 @@
 #include "test_common.hpp"
-#include "../settings.hpp"
+#include "settings.hpp"
 #include <cstdlib>
 #include <filesystem>
 #include <fstream>
