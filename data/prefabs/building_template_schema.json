@@ -17,7 +17,7 @@
   "definitions": {
     "BuildingTemplate": {
       "type": "object",
-      "required": ["id", "name", "category", "width", "height", "layout"],
+      "required": ["id"],
       "properties": {
         "id": {
           "type": "string",
@@ -25,12 +25,20 @@
         },
         "name": {
           "type": "string",
-          "description": "Display name of the building"
+          "description": "Display name of the building (auto-derived from id if omitted)"
         },
         "category": {
           "type": "string",
           "enum": ["residential", "commercial", "civic", "religious", "military", "industrial"],
-          "description": "Functional category of the building"
+          "description": "Functional category of the building (default: residential)"
+        },
+        "archetype": {
+          "type": "string",
+          "description": "Procedural generator archetype (e.g. hovel, cottage, townhouse, manor, smithy, tavern, watchtower, guardpost, chapel, warehouse)"
+        },
+        "generator": {
+          "type": "string",
+          "description": "Alias for archetype"
         },
         "settlement_tiers": {
           "type": "array",
@@ -38,24 +46,32 @@
             "type": "string",
             "enum": ["hamlet", "village", "town", "city"]
           },
-          "description": "Settlement sizes where this building can spawn"
+          "description": "Settlement sizes where this building can spawn (default: all tiers)"
         },
         "biomes": {
           "type": "array",
           "items": {
             "type": "string"
           },
-          "description": "Biomes where this building is culturally/environmentally appropriate"
+          "description": "Biomes where this building is culturally/environmentally appropriate (default: all biomes)"
         },
         "width": {
           "type": "integer",
           "minimum": 3,
-          "description": "Width in tiles"
+          "description": "Width in tiles (inferred automatically from layout if omitted)"
         },
         "height": {
           "type": "integer",
           "minimum": 3,
-          "description": "Height in tiles"
+          "description": "Height in tiles (inferred automatically from layout if omitted)"
+        },
+        "floors": {
+          "type": ["integer", "array"],
+          "description": "Number of procedural floors (integer) OR multi-level vertical floor configurations (array of floor objects)"
+        },
+        "num_floors": {
+          "type": "integer",
+          "description": "Number of procedural floors (1 = ground, 2 = ground + upper, 3 = cellar + ground + upper)"
         },
         "wall_type": {
           "type": "string",
@@ -95,40 +111,7 @@
               }
             }
           },
-          "description": "Named room bounding boxes inside the building"
-        },
-        "floors": {
-          "type": "array",
-          "description": "Multi-level vertical floor configurations (-1 = cellar, 0 = ground, 1 = upper)",
-          "items": {
-            "type": "object",
-            "required": ["level", "layout"],
-            "properties": {
-              "level": {
-                "type": "integer",
-                "description": "Vertical Z elevation of this floor"
-              },
-              "name": {
-                "type": "string",
-                "description": "Display name of this specific floor"
-              },
-              "wall_type": {
-                "type": "string"
-              },
-              "floor_type": {
-                "type": "string"
-              },
-              "layout": {
-                "type": "array",
-                "items": {
-                  "type": "string"
-                }
-              },
-              "rooms": {
-                "$ref": "#/definitions/BuildingTemplate/properties/rooms"
-              }
-            }
-          }
+          "description": "Optional named room bounding boxes (automatically detected via flood-fill if omitted)"
         }
       }
     }

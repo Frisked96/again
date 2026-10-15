@@ -7,42 +7,8 @@
       "category": "commercial",
       "settlement_tiers": ["town", "city", "village"],
       "biomes": ["lowland_meadow", "deciduous_weald", "dry_steppe"],
-      "width": 14,
-      "height": 12,
       "wall_type": "WoodWall",
       "floor_type": "WoodFloor",
-      "layout": [
-        "##############",
-        "#......#.....#",
-        "#.<....#..>..#",
-        "#..==..#.....#",
-        "#......###+###",
-        "#......#.....#",
-        "#...+..#.....#",
-        "#......###+###",
-        "#......#.....#",
-        "#......#.....#",
-        "#......+.....#",
-        "######+#######"
-      ],
-      "rooms": [
-        {
-          "name": "Tavern Taproom",
-          "x1": 1, "y1": 1, "x2": 6, "y2": 10
-        },
-        {
-          "name": "Cellar Stairwell & Pantry",
-          "x1": 8, "y1": 1, "x2": 12, "y2": 3
-        },
-        {
-          "name": "Guest Parlor North",
-          "x1": 8, "y1": 5, "x2": 12, "y2": 6
-        },
-        {
-          "name": "Guest Parlor South",
-          "x1": 8, "y1": 8, "x2": 12, "y2": 10
-        }
-      ],
       "floors": [
         {
           "level": -1,
@@ -62,31 +28,11 @@
             "#....#..#....#",
             "#....#..#....#",
             "##############"
-          ],
-          "rooms": [
-            {
-              "name": "Wine & Ale Keg Vault",
-              "x1": 7, "y1": 1, "x2": 12, "y2": 3
-            },
-            {
-              "name": "Cold Food Stores",
-              "x1": 1, "y1": 1, "x2": 5, "y2": 3
-            },
-            {
-              "name": "Cellar Great Hall",
-              "x1": 1, "y1": 5, "x2": 12, "y2": 7
-            },
-            {
-              "name": "Smuggler's Secret Vault",
-              "x1": 5, "y1": 9, "x2": 7, "y2": 10
-            }
           ]
         },
         {
           "level": 0,
           "name": "Tavern Common Room & Taproom",
-          "wall_type": "WoodWall",
-          "floor_type": "WoodFloor",
           "layout": [
             "##############",
             "#......#.....#",
@@ -100,31 +46,11 @@
             "#......#.....#",
             "#......+.....#",
             "######+#######"
-          ],
-          "rooms": [
-            {
-              "name": "Tavern Taproom",
-              "x1": 1, "y1": 1, "x2": 6, "y2": 10
-            },
-            {
-              "name": "Cellar Stairwell & Pantry",
-              "x1": 8, "y1": 1, "x2": 12, "y2": 3
-            },
-            {
-              "name": "Guest Parlor North",
-              "x1": 8, "y1": 5, "x2": 12, "y2": 6
-            },
-            {
-              "name": "Guest Parlor South",
-              "x1": 8, "y1": 8, "x2": 12, "y2": 10
-            }
           ]
         },
         {
           "level": 1,
           "name": "Guest Bedchambers & Innkeeper Suite",
-          "wall_type": "WoodWall",
-          "floor_type": "WoodFloor",
           "layout": [
             "##############",
             "#....#...#...#",
@@ -138,39 +64,128 @@
             "#...#...+....#",
             "#...#...#....#",
             "##############"
-          ],
-          "rooms": [
-            {
-              "name": "Stair Landing & Foyer",
-              "x1": 1, "y1": 1, "x2": 4, "y2": 3
-            },
-            {
-              "name": "Upper Hallway",
-              "x1": 1, "y1": 5, "x2": 12, "y2": 6
-            },
-            {
-              "name": "North Bedchamber",
-              "x1": 6, "y1": 1, "x2": 8, "y2": 3
-            },
-            {
-              "name": "Innkeeper's Suite",
-              "x1": 10, "y1": 1, "x2": 12, "y2": 3
-            },
-            {
-              "name": "South Bedchamber West",
-              "x1": 1, "y1": 8, "x2": 3, "y2": 10
-            },
-            {
-              "name": "South Bedchamber Mid",
-              "x1": 5, "y1": 8, "x2": 7, "y2": 10
-            },
-            {
-              "name": "Noble Suite",
-              "x1": 9, "y1": 8, "x2": 12, "y2": 10
-            }
           ]
         }
       ]
+    },
+    {
+      "id": "peasant_hovel",
+      "name": "Peasant Hovel",
+      "category": "residential",
+      "layout": [
+        "######",
+        "#....#",
+        "#....#",
+        "#....#",
+        "#....#",
+        "##+###"
+      ]
+    },
+    {
+      "id": "village_cottage",
+      "name": "Village Cottage",
+      "category": "residential",
+      "layout": [
+        "########",
+        "#......#",
+        "#......#",
+        "#...####",
+        "#...+..#",
+        "#......#",
+        "#......#",
+        "###+####"
+      ]
+    },
+    {
+      "id": "blacksmith_smithy",
+      "name": "Village Smithy",
+      "category": "commercial",
+      "wall_type": "StoneWall",
+      "floor_type": "StoneFloor",
+      "layout": [
+        "###########",
+        "#.....#...#",
+        "#..&..#...#",
+        "#.....#...#",
+        "#.....#...+",
+        "#.....#...#",
+        "#.....#...#",
+        "#.....#...#",
+        "#####+#####"
+      ]
+    },
+    {
+      "id": "village_chapel",
+      "name": "Sanctuary Chapel",
+      "category": "religious",
+      "wall_type": "StoneWall",
+      "floor_type": "StoneFloor",
+      "layout": [
+        "###########",
+        "#....>....#",
+        "#.........#",
+        "#....#....#",
+        "\".........\"",
+        "#.........#",
+        "#.........#",
+        "#.........#",
+        "\".........\"",
+        "#.........#",
+        "#.........#",
+        "#.........#",
+        "#####+#####"
+      ]
+    },
+    {
+      "id": "guard_outpost",
+      "name": "Watchtower Post",
+      "category": "military",
+      "wall_type": "StoneWall",
+      "floor_type": "StoneFloor",
+      "layout": [
+        "########",
+        "\"......\"",
+        "#......#",
+        "#......#",
+        "#..>...#",
+        "#......#",
+        "\"......\"",
+        "###+####"
+      ]
+    },
+    {
+      "id": "proc_tavern",
+      "name": "Procedural Wayside Tavern",
+      "category": "commercial",
+      "archetype": "tavern",
+      "width": 14,
+      "height": 12,
+      "floors": 2
+    },
+    {
+      "id": "proc_watchtower",
+      "name": "Procedural Watchtower",
+      "category": "military",
+      "archetype": "watchtower",
+      "width": 6,
+      "height": 6,
+      "floors": 2
+    },
+    {
+      "id": "proc_cottage",
+      "name": "Procedural Cottage",
+      "category": "residential",
+      "archetype": "cottage",
+      "width": 8,
+      "height": 8
+    },
+    {
+      "id": "proc_smithy",
+      "name": "Procedural Town Forge",
+      "category": "commercial",
+      "archetype": "smithy",
+      "width": 11,
+      "height": 9
     }
   ]
 }

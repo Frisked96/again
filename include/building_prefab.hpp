@@ -89,6 +89,40 @@ struct BuildingTemplate {
     }
     return "Interior";
   }
+
+  void infer_missing_data();
+};
+
+class RoomDetector {
+public:
+  // Detects separated rooms by flood-filling traversable tiles bounded by walls & doors
+  static std::vector<RoomDescriptor> detect_rooms(
+      const std::vector<std::string> &layout,
+      const std::vector<std::string> &suggested_names = {});
+};
+
+struct ProceduralBuildingConfig {
+  std::string id;
+  std::string name;
+  std::string category{"residential"}; // "residential", "commercial", "military", "religious", "industrial"
+  std::string archetype{"cottage"};    // "hovel", "cottage", "townhouse", "manor", "smithy", "tavern", "shop", "watchtower", "guardpost", "barracks", "chapel", "shrine", "warehouse"
+  int width{0};                        // 0 means auto/random based on archetype
+  int height{0};                       // 0 means auto/random based on archetype
+  int num_floors{1};                   // 1 = ground only, 2 = ground + upper, 3 = cellar + ground + upper
+  Structure::ID wall_type{Structure::ID::None}; // None means chosen from archetype
+  Structure::ID floor_type{Structure::ID::None};
+  std::vector<std::string> settlement_tiers;
+  std::vector<std::string> biomes;
+  std::vector<std::string> room_names;
+};
+
+class BuildingGenerator {
+public:
+  // Generates a fully valid BuildingTemplate from procedural specifications
+  static BuildingTemplate generate(const ProceduralBuildingConfig &config, uint32_t seed = 0);
+
+  // Quick generator for a random building in a given category & settlement tier
+  static BuildingTemplate generate_random(std::string_view category, std::string_view tier = "village", uint32_t seed = 0);
 };
 
 class PrefabCatalog {
@@ -113,6 +147,9 @@ public:
   void add_template(BuildingTemplate tmpl) {
     templates.push_back(std::move(tmpl));
   }
+
+  BuildingTemplate generate_and_add(const ProceduralBuildingConfig &config, uint32_t seed = 0);
+  const BuildingTemplate* get_random_or_generate(std::string_view category, std::string_view tier, uint32_t seed);
 
   [[nodiscard]] size_t size() const noexcept {
     return templates.size();

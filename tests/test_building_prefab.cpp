@@ -576,13 +576,168 @@ void test_prefab_catalog_connectivity_and_layout_rules() {
     CHECK(found_three_floor_building); // Ensures we verified at least one 3-level building layout
 }
 
+void test_streamlined_blueprint_loading() {
+    // 1. Single floor layout with NO width, height, or rooms specified
+    std::string_view json_simple = R"({
+      "templates": [
+        {
+          "id": "tiny_shack",
+          "layout": [
+            "#####",
+            "#...#",
+            "#...#",
+            "#...#",
+            "##+##"
+          ]
+        }
+      ]
+    })";
+
+    Architecture::PrefabCatalog catalog;
+    CHECK(catalog.load_from_string(json_simple));
+    const auto *shack = catalog.find_by_id("tiny_shack");
+    CHECK(shack != nullptr);
+    CHECK(shack->width == 5);
+    CHECK(shack->height == 5);
+    CHECK(shack->name == "Tiny Shack"); // Title-cased from ID
+    CHECK(shack->category == "residential"); // Sensible default
+    CHECK(shack->wall_type == Structure::ID::WoodWall);
+    CHECK(shack->floor_type == Structure::ID::WoodFloor);
+    CHECK(!shack->rooms.empty()); // Auto-detected room!
+    CHECK(shack->rooms[0].x1 == 1 && shack->rooms[0].y1 == 1);
+    CHECK(shack->rooms[0].x2 == 3 && shack->rooms[0].y2 == 3);
+
+    // 2. Procedural archetype entry in JSON
+    std::string_view json_proc = R"({
+      "templates": [
+        {
+          "id": "auto_inn",
+          "archetype": "tavern",
+          "width": 14,
+          "height": 12,
+          "floors": 2
+        }
+      ]
+    })";
+
+    Architecture::PrefabCatalog catalog2;
+    CHECK(catalog2.load_from_string(json_proc));
+    const auto *inn = catalog2.find_by_id("auto_inn");
+    CHECK(inn != nullptr);
+    CHECK(inn->width == 14);
+    CHECK(inn->height == 12);
+    CHECK(inn->floors.size() == 2);
+    CHECK(!inn->rooms.empty());
+
+    // 3. Catalog on-the-fly random generation
+    auto *rand_bldg = catalog2.get_random_or_generate("military", "village", 42);
+    CHECK(rand_bldg != nullptr);
+    CHECK(rand_bldg->category == "military");
+    CHECK(rand_bldg->is_valid());
+}
+
+void test_procedural_generation_100_buildings() {
+    std::vector<std::string> archetypes = {
+        "hovel", "cottage", "townhouse", "manor", "smithy",
+        "tavern", "shop", "watchtower", "guardpost", "chapel", "warehouse"
+    };
+
+    for (int i = 0; i < 100; ++i) {
+        uint32_t seed = static_cast<uint32_t>(1000 + i);
+        std::string arch = archetypes[i % archetypes.size()];
+
+        Architecture::ProceduralBuildingConfig cfg;
+        cfg.id = "building_" + std::to_string(i);
+        cfg.archetype = arch;
+        cfg.width = 6 + (i % 7) * 2;   // 6, 8, 10, 12, 14, 16, 18
+        cfg.height = 6 + (i % 5) * 2;  // 6, 8, 10, 12, 14
+        cfg.num_floors = 1 + (i % 3);  // 1, 2, or 3 floors
+
+        auto tmpl = Architecture::BuildingGenerator::generate(cfg, seed);
+        CHECK(tmpl.is_valid());
+        CHECK(tmpl.width == cfg.width);
+        CHECK(tmpl.height == cfg.height);
+        CHECK(static_cast<int>(tmpl.floors.size()) == cfg.num_floors);
+        CHECK(!tmpl.rooms.empty());
+
+        // Verify ground entrance
+        const auto *ground = tmpl.get_floor(0);
+        CHECK(ground != nullptr);
+
+        std::vector<LayoutCoord> ground_entries;
+        for (int y = 0; y < tmpl.height; ++y) {
+            for (int x = 0; x < tmpl.width; ++x) {
+                char c = ground->layout[y][x];
+                if (c == '+' || c == '/') {
+                    bool exterior = (x == 0 || x == tmpl.width - 1 || y == 0 || y == tmpl.height - 1);
+                    if (exterior) ground_entries.push_back({x, y});
+                }
+            }
+        }
+        CHECK(!ground_entries.empty());
+
+        // Verify ground floor reachability
+        auto g_visited = compute_layout_reachability(*ground, tmpl.width, tmpl.height, ground_entries);
+        for (int y = 0; y < tmpl.height; ++y) {
+            for (int x = 0; x < tmpl.width; ++x) {
+                if (is_traversable_glyph(ground->layout[y][x])) {
+                    CHECK(g_visited[y][x]);
+                }
+            }
+        }
+
+        // Verify stair pairing and non-ground reachability
+        if (tmpl.floors.size() > 1) {
+            for (const auto &fl : tmpl.floors) {
+                if (fl.level == 0) continue;
+                std::vector<LayoutCoord> fl_stairs;
+                for (int y = 0; y < tmpl.height; ++y) {
+                    for (int x = 0; x < tmpl.width; ++x) {
+                        char c = fl.layout[y][x];
+                        if (c == '<' || c == '>') fl_stairs.push_back({x, y});
+                    }
+                }
+                CHECK(!fl_stairs.empty());
+
+                auto fl_visited = compute_layout_reachability(fl, tmpl.width, tmpl.height, fl_stairs);
+                for (int y = 0; y < tmpl.height; ++y) {
+                    for (int x = 0; x < tmpl.width; ++x) {
+                        if (is_traversable_glyph(fl.layout[y][x])) {
+                            CHECK(fl_visited[y][x]);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Test map stamping for a sample of buildings
+        if (i % 10 == 0) {
+            int map_size = std::max(tmpl.width, tmpl.height) + 20;
+            GameMap::Map map(map_size, map_size);
+            CHECK(map.stamp_building(5, 5, tmpl, 0));
+            CHECK(map.stamp_building(5, 5, tmpl, 90));
+        }
+    }
+
+    // Verify seed determinism: same seed produces identical layout
+    auto b1 = Architecture::BuildingGenerator::generate_random("commercial", "town", 777);
+    auto b2 = Architecture::BuildingGenerator::generate_random("commercial", "town", 777);
+    CHECK(b1.width == b2.width);
+    CHECK(b1.height == b2.height);
+    CHECK(b1.layout == b2.layout);
+    CHECK(b1.rooms.size() == b2.rooms.size());
+}
+
 int main() {
     test_building_prefabs_and_doors();
     test_ground_preservation_and_destruction();
     test_multi_level_and_stairs();
     test_support_cascade_destruction();
     test_prefab_catalog_connectivity_and_layout_rules();
+    test_streamlined_blueprint_loading();
+    test_procedural_generation_100_buildings();
 
     std::cout << "All building and structure tests passed.\n";
     return 0;
 }
+
